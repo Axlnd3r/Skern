@@ -369,6 +369,12 @@ MCP tools: `list_rounds`, `get_round`, `get_consensus`, `submit_path`, `get_my_r
 - [ ] **Step 3:** Every blocker and major is fixed by `contracts-dev` with a pinning test, then re-reviewed. Minor findings are listed, not required.
 - [ ] **Step 4:** Commit `docs: final audit results`. Expected: `docs/notes/audit.md` ends with "0 open blocker, 0 open major".
 
+## Review follow-ups (open minors carried forward)
+
+- **From Task 2, M1:** `shared/score.ts` `isValid(new Array(3))` and `isValid([z, , z])` throw a `TypeError` instead of returning false, because `Array.prototype.every` skips holes. Fix by checking indices 0..2 explicitly and add `expect(isValid(new Array(3) as unknown as Path)).toBe(false)`. Do it in the first task that edits `shared/score.ts` (Task 9 or 11), before the keeper relay (Task 10) trusts `isValid` on untrusted input.
+- **From Task 2, M2:** the comment above the `require-revert-in-loop` suppression in `ScoreLib.sol` says "checked once, before the loop", but the lint actually fires because callers (for example `GenVectors._random`) loop over `score`. Reword it: "callers loop over score; T is constant per call, so this revert cannot be triggered per item."
+- **Forward risk for Tasks 4-7:** that suppression sits at the library line, so it also silences the lint for any future `Arena` or `GapMarket` loop that calls `ScoreLib.score`. The reviewer must check revert-in-loop and loop-DoS by hand in those tasks. Prefer calling `score` once per claim (lazy scoring), never inside a loop over participants.
+
 ## Resolved decisions
 
 - **D1 (approved by the user): delegated reveal.** As written, a person must sign a second transaction inside the reveal window (30 s in demo rounds, 15 min in production) or lose the stake. Proposed change: `reveal(id, who, path, salt)` callable by anyone; the hash already binds `who`, so nobody else can build a valid commit for that address. The app sends path and salt to the keeper, which reveals for the user. Trade-off: the keeper sees human paths before the reveal window (it is already a trusted party). Task 4 therefore uses `reveal(id, who, path, salt)`, Task 10 adds a keeper reveal relay, and the app (Task 13) submits path and salt to that relay right after the commit. The SDK still persists the salt locally as a fallback.
