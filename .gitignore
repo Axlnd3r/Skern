@@ -1,0 +1,22 @@
+# secrets / keys (testnet keys must never be committed)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+keystore/
+
+# node / next
+node_modules/
+.next/
+dist/
+
+# foundry
+out/
+cache/
+broadcast/
+
+# misc
+.DS_Store
+*.log
+.claude/settings.local.json
