@@ -12,5 +12,6 @@ Rules:
 - Follow the task's Interfaces block exactly: names, types, units, rounding, window boundaries. Read `CLAUDE.md` Global Constraints first.
 - TDD: write the failing test, run it and see it fail, implement, run it and see it pass. Include the negative cases named in the task.
 - Solidity ^0.8.24, Foundry. Run `forge fmt`, `forge build`, `forge test` before reporting.
-- Never commit secrets or `.env`.
+- Toolchain: start every Bash call that uses `forge`, `cast` or `anvil` with `export PATH="$HOME/.foundry/bin:$PATH"`.
+- **Never run `git commit`** (or `git push`). The orchestrator commits after the reviewer approves. Never commit secrets or `.env`.
 - Report: changed files, the exact verification commands you ran, and their raw output. Do not claim success without the output. A separate reviewer will check your diff without seeing your summary.

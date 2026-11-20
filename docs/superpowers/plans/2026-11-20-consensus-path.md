@@ -15,7 +15,7 @@
 - Network: Base Sepolia only. Points only: no real money, no token launch.
 - Units: every path and real candle is **int32 basis points relative to P0**; `open_1 := P0 (0 bp)`, `open_i = close_(i-1)`. Index of a path field = `candle*3 + {0:close, 1:high, 2:low}`.
 - Valid path: for each candle `low <= min(open, close)` and `high >= max(open, close)`.
-- Score: per candle `0.5*close + 0.2*range + 0.3*direction`, mean of 3, x100, **floor** to integer 0..100. Direction: 1 same sign (both flat counts), 0.5 exactly one flat, 0 opposite.
+- Score (integer, pinned operation order). Per candle, with all differences taken in `int256`: `C = 10000 - min(10000, |dc|*10000/T)`, `R = 10000 - min(10000, (|dh|+|dl|)*10000/(2*T))`, `D = 10000` if `sign(close-open)` is equal (both flat counts), `5000` if exactly one is flat, else `0`. Per candle `s = 5*C + 2*R + 3*D` (no division). Final `score = floor(sum(s) * 100 / 300000)`, integer 0..100. Every division is floor division of a non-negative number. Cast to `int256` before any subtraction or `abs`. TypeScript uses `bigint` only; no float ever enters the scoring path.
 - Histogram: 201 buckets per field, `width = max(1, ceil(T/10))` bp, bucket index = `clamp(100 + floorDiv(v, width), 0, 200)` where `floorDiv` rounds toward negative infinity (Solidity `/` truncates toward zero, so floor explicitly; e.g. `floorDiv(-15, 2) = -8`), bucket `i` represents `(i-100)*width` bp. Median = lowest bucket whose cumulative count >= ceil(n/2).
 - Quorum: market opens only if each side has >= 3 reveals. Equal integer consensus scores = tie = refund.
 - Points economy: `STARTER_GRANT = 1000`, `AGENT_BOND = 100`. Forfeited stakes of unrevealed entries are **burned** (lazy scoring cannot know the total needed for a pro-rata pot). Claim reward = `(score - baselineScore) * REWARD_PER_POINT` when score > baseline, else 0.
@@ -55,7 +55,9 @@ Rules for the orchestrator (written to the project `CLAUDE.md` in Task 1):
 2. A domain agent may touch only the paths its task lists. Cross-domain needs go through `shared/abi/*.json` and `shared/addresses.json`.
 3. Consult the advisor before locking the approach of any contract task, after the same failure twice, and before declaring a task or the project done.
 4. A task is complete only after its verification command was run and its output read, **and** `reviewer` returned APPROVE under the Reviewer protocol. No dependent task starts, and nothing is committed as "done", before that.
-5. The orchestrator commits after each passing task and does not push without the user's approval.
+5. **Implementers never run `git commit`.** Every "Commit" step in a task is executed by the orchestrator after APPROVE. The user approved pushing to `origin/main`; never force-push. The reviewer gets `git diff --cached` of the task's staged paths.
+6. The orchestrator, not a domain agent, owns repo-root files (`package.json`, `tsconfig.json`, `vitest.config.ts`, `.gitmodules`, `.gitignore`, `.gitattributes`). A task that needs one (for example `forge install` writing `.gitmodules`) says so, and the dispatch grants it explicitly.
+7. Toolchain: every Bash call using `forge`/`cast`/`anvil` starts with `export PATH="$HOME/.foundry/bin:$PATH"` (not on the permanent PATH).
 
 ## Reviewer protocol (Opus, perfectionist)
 
@@ -92,8 +94,8 @@ docs/notes/data-source.md          Task 0 output
 contracts/src/{ScoreLib,Points,Registry,Arena,GapMarket}.sol
 contracts/src/interfaces/{IHumanGate,IArenaState}.sol
 contracts/test/*.t.sol   contracts/script/Deploy.s.sol
-shared/abi/*.json   shared/addresses.json   shared/score.ts   shared/score.test.ts   shared/vectors/score.json
-.gitattributes
+shared/abi/*.json   shared/addresses.json   shared/score.ts   shared/score.test.ts   contracts/test/vectors/score.json
+package.json   tsconfig.json   vitest.config.ts   (repo root, owned by the orchestrator)
 keeper/src/{t,candles,rounds,demo}.ts   keeper/test/*.test.ts
 agents/src/{sdk,mcp,salt}.ts   agents/src/house/{momentum,meanReversion,newsLlm}.ts   agents/test/*.test.ts
 app/src/...   app/e2e/*.spec.ts
@@ -125,13 +127,14 @@ app/src/...   app/e2e/*.spec.ts
 
 ### Task 2: Foundry scaffold + `ScoreLib`
 
-**Files:** Create `contracts/foundry.toml`, `contracts/src/ScoreLib.sol`, `contracts/test/ScoreLib.t.sol`, `contracts/script/GenVectors.s.sol`, `shared/score.ts`, `shared/score.test.ts`, `shared/vectors/score.json`, `.gitattributes` (`* text=auto`, `*.sh text eol=lf`)
+**Files:** Create `contracts/foundry.toml` (with `[fuzz] runs = 10000` and `fs_permissions = [{ access = "read-write", path = "./test/vectors" }]`), `contracts/src/ScoreLib.sol`, `contracts/test/ScoreLib.t.sol`, `contracts/script/GenVectors.s.sol`, `contracts/test/vectors/score.json`, `shared/score.ts`, `shared/score.test.ts`. The dispatch also grants: `forge install foundry-rs/forge-std` (writes `.gitmodules` and `contracts/lib/`). The orchestrator has already created the repo-root `package.json`, `tsconfig.json`, `vitest.config.ts`.
 
 **Interfaces:** Produces
 ```solidity
 struct Candle { int32 close; int32 high; int32 low; }
 library ScoreLib {
   function isValid(Candle[3] memory p) internal pure returns (bool);
+  function closeTerm(uint256 absDc, uint256 T) internal pure returns (uint256);   // C, 0..10000
   function score(Candle[3] memory pred, Candle[3] memory real, uint32 T) internal pure returns (uint8);
 }
 ```
@@ -141,12 +144,12 @@ library ScoreLib {
   - `test_flatBaselineScores29`: same real, pred all zeros, `T=20` -> `29` (per candle .53/.20/.15, mean .2933, floor).
   - `test_bothFlatDirectionIsMatch`, `test_oneFlatDirectionIsHalf`, `test_oppositeDirectionIsZero`.
   - `test_isValidRejectsHighBelowClose`, `test_isValidRejectsLowAboveOpen`.
-  - `testFuzz_scoreNeverExceeds100`, `testFuzz_scoreIsMonotoneInCloseError` (moving a close closer to real never lowers the score).
+  - `testFuzz_scoreNeverExceeds100`, `testFuzz_closeTermIsMonotone` (a smaller absolute close error never lowers `closeTerm`). The total score is deliberately **not** asserted monotone in a single close: `open_(i+1) = close_i`, so moving one close can flip the next candle's direction and lower the total (counterexample with T=100: real closes 10, 12; pred closes 0, 5 with h1=8 l1=0 h2=8 l2=5; moving pred c1 from 0 to 8 raises candle 1 but flips candle 2's direction).
   - `test_TZeroReverts`.
 - [ ] **Step 2:** Run; expected FAIL (library missing).
-- [ ] **Step 3:** Implement with fixed-point 1e4 integer math, per README §4.
+- [ ] **Step 3:** Implement exactly the pinned formula in Global Constraints (`C`, `R`, `D` in 0..10000, `s = 5C + 2R + 3D`, `score = floor(sum(s)*100/300000)`), casting to `int256` before any subtraction or `abs`. Check against the two vectors above: perfect = 100 (per-candle s = 100000), flat baseline = 29 (s = 53000, 20000, 15000; sum 88000).
 - [ ] **Step 4:** Run; expected all PASS.
-- [ ] **Step 5: Shared TypeScript scoring.** `GenVectors.s.sol` writes `shared/vectors/score.json` (at least 20 pred/real/T cases including negative values and flat candles, each with the Solidity result). `shared/score.ts` exports `isValid(p: Candle[3]): boolean` and `score(pred: Candle[3], real: Candle[3], T: number): number` using integer math in the same operation order as `ScoreLib`. `shared/score.test.ts` asserts parity for every vector. Run `pnpm vitest run shared`; expected PASS.
+- [ ] **Step 5: Shared TypeScript scoring.** `GenVectors.s.sol` writes `contracts/test/vectors/score.json` (at least 20 pred/real/T cases including negative values and flat candles, each with the Solidity result). `shared/score.ts` exports `isValid(p: Candle[3]): boolean` and `score(pred: Candle[3], real: Candle[3], T: number): number` using `bigint` only, in the same operation order as `ScoreLib`. `shared/score.test.ts` reads `../contracts/test/vectors/score.json` and asserts parity for every vector. Run `pnpm vitest run shared`; expected PASS.
 - [ ] **Step 6:** Commit `feat: ScoreLib and shared TypeScript scoring with parity vectors`.
 
 ### Task 3: `Points` and `Registry`
