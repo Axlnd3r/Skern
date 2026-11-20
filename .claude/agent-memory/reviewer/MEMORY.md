@@ -1,0 +1,1 @@
+- [Bug classes](bug_classes.md) — struct aliasing, unrelated-reason negatives, snapshot-only vectors, JS every() holes, scope; lint suppressions: test project-wide only
