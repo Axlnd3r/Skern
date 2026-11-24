@@ -1,6 +1,6 @@
 ---
 name: bug-classes
-description: Bug classes found in Consensus Path reviews (Solidity + TS; cross-round read-site keying, presence vs quorum), reviewer method pitfalls (fuzz FAIL parsing, probes), and forward risks for Tasks 6-13; check first on every diff
+description: Bug classes found in Consensus Path reviews (Solidity + TS; cross-round read-site keying incl. per-field helper constants, presence vs quorum), reviewer method pitfalls, equivalent mutants, and forward risks for Tasks 6-19; check first on every diff
 metadata:
   type: project
 ---
@@ -25,6 +25,9 @@ Bug classes seen in implementer diffs. Check each one first on every review.
    **Recurred in Task 5 round 1 (2026-11-24), rated major:** `test_freezeIsRoundIsolated` existed but used the same per-kind reveal count (3 humans) in both rounds, gave the newer round a superset of kinds, and froze rounds in creation order. Six `[roundCount]` mutants survived: `_revealCount` in `_median` target / `freezeConsensus` NoReveals / `_consensusPath` presence, and `_frozenMask` in AlreadyFrozen / `_freezeAll` skip / `ready`. A "has an isolation test" is not enough. Require: **different per-kind counts across rounds, complementary presence (older round has a kind the newer lacks and vice versa), freeze the newer round first, and assert the older round's `ready` while the newer one is unfrozen.** Mutate EVERY read site of every per-round mapping separately, not just the writes.
 
    **Fixed in Task 5 fix round 1:** `test_freezeIsRoundIsolatedWithDifferentCountsAndPresence` (built from my probe design) kills all six; it is the template for Tasks 6-7 per-round state (scores, claims, pools).
+
+   **Recurred in Task 6 round 1 (2026-11-24), rated major, one field only:** `postCandles` reading `_rounds[roundCount].marketEnd` (and `[1]`) survived. The test helper `_open(T, stake, candleSec, deadline)` hard-codes `commitEnd/revealEnd/marketEnd` to the same values for every round, so the multi-round tests varied T, stake, candleSec and deadline but never marketEnd. **How to apply: read the test's round-opening helper first and list every `RoundParams` field it holds constant across rounds; each such field that the task's code reads is an unpinned read site. Mutate per FIELD, not only per mapping (`rp = _rounds[roundCount]` was killed via T/candleSec while the single `.marketEnd` read survived).** In production, overlapping rounds always differ in every time field, so this bug would bite on every keeper post.
+   **Fixed in Task 6 fix round 1:** `_openME(T, stake, marketEnd, candleSec, deadline)` plus `test_marketEndKeyedOnIdNewerIsLater` / `OlderIsLater` (exact earliest boundaries in both directions) and `test_olderRoundPostableAtOwnDeadlineWhenNewerMarketEndIsLate` kill `[roundCount]`, `[1]` and `[0]`. Template for Task 7 (`revealEnd`/`marketEnd` bet window).
 
 7. **Presence threshold conflated with quorum.** (Fixed in Task 5 fix round 1 by `test_freezeAllFreezesSidesBelowQuorum`, 1 human + 2 agents, kills `< 3` and `< 2`.) Task 5 round 1: no test ran `freezeAll`/`ready` with a kind of 1 or 2 reveals, so `_revealCount == 0` -> `< 3` survived (major: a below-quorum side must still be frozen and scored, Review Focus 4). **How to apply:** for every "absent iff 0" or "quorum >= 3" check, require tests at 1, 2 and 3; mutate `== 0` to `< 3` and `< 3` to `== 0`.
 
@@ -63,6 +66,16 @@ Bug classes seen in implementer diffs. Check each one first on every review.
 - **Task 7 and app:** `consensus()` returns a partial path with `ready == false` (unfrozen fields read 0 and the repair fires on them). `bet` and the UI must gate on `ready` for both sides.
 - **Indexers (Tasks 10, 12):** `KindAbsent` repeats on every `freezeAll` call, so dedupe it. An off-chain median must copy `bucketValue` saturation (int32.min is reachable at max T; int32.max is not reachable from reveals).
 - Verified by proof: the repair never fires on a fully frozen path from valid reveals (pointwise domination plus monotone `bucketIndex` and `bucketValue`). The fuzz oracle compares the repaired path with the raw medians.
+
+## Forward risks from Task 6 (2026-11-24)
+- **Task 7 first check:** GapMarket `bet` reads `revealEnd` and `marketEnd`, and claim reads Arena `settled/isVoid/consensusScores` by id. Read the GapMarket test's round helper FIRST: if it holds revealEnd/marketEnd constant across rounds, the Task 6 marketEnd gap recurs. Mutate each field read to `[roundCount]` and `[1]`.
+- **Derived void emits no event.** `isVoid` is `voided || (!posted && now > settleDeadline)`; `RoundVoided` fires only if someone calls `voidRound`. GapMarket (Task 7), indexers (10, 12) and the app must read `isVoid()`, never the flag or the event. `Claimed` on a void round reports score 0, so the app must check `isVoid` before showing a score.
+- **Gas.** `postCandles` worst case is 2.69M (structural max: candle-1 low <= 0 never walks past bucket 100). The Task 9 keeper gas limit must be >= 3.5M. Claim is O(1): about 80k for a settled winner, about 57k for a void refund.
+- **Keeper (Task 9).** `postCandles` is one-shot with no admin fix: wrong-but-valid candles, or the right candles on the wrong id, are permanent. Dry-run with `eth_call`, check `id` and `realCandles` after posting, and treat `AlreadyPosted` as terminal (never re-post with other data).
+- **Spec-level (not an implementer bug):** a revealed entry can never lose points (stake back plus max(0, score - baseline)), so every identity holds a free option on rewards. Combined with D3 free sybils, the reward mint is unbounded per gas. Task 19's threat model should list it.
+- **Equivalent mutants in Arena settle (do not report as gaps):** drop `s.voided ||` in `_isVoid` (the flag implies `!posted && now > deadline`); `score >= base` (the reward is 0 at equality); `claimed = true` after `points.mint` (Points has no hooks and is immutable; this becomes live if Points ever gains callbacks).
+- **Method (re-reviews):** rerun the whole earlier mutant list, not only the survivors (127 mutants take about 15 min). To finish sooner, split the list across two fresh scratch copies and run them in parallel. Check that result ids line up with the mutant list, and `cmp` scratch `src/` against the repo afterwards.
+- **Method:** in this shell, `grep -E "^\[(PASS|FAIL)"` inside a for-loop errored with "Unmatched [". Use `grep -E "PASS|FAIL"` there. In `mut.sh` (read from a file) `^\[FAIL` works.
 
 ## Review method that worked (Task 2)
 - Copy `contracts/` (and `shared/`) to `%TEMP%`.
