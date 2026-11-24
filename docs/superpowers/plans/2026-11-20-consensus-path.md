@@ -369,6 +369,22 @@ MCP tools: `list_rounds`, `get_round`, `get_consensus`, `submit_path`, `get_my_r
 - [ ] **Step 3:** Every blocker and major is fixed by `contracts-dev` with a pinning test, then re-reviewed. Minor findings are listed, not required.
 - [ ] **Step 4:** Commit `docs: final audit results`. Expected: `docs/notes/audit.md` ends with "0 open blocker, 0 open major".
 
+### Task 20: Public hosting and invited-user beta (added 2026-11-24)
+
+**Why:** the plan so far only guarantees a demo video and 1-2 real rounds with 3 invited humans (Task 18). For other people to try the app on their own, it needs a public URL and a keeper that keeps running.
+
+**Files:** Create `app/vercel.json` (or the chosen host's config), `keeper/src/server.ts` (process entry), `keeper/Dockerfile` or `keeper/README.md` (run guide), `docs/notes/hosting.md`; extend `contracts/.env.example` and add `keeper/.env.example`.
+
+**Interfaces:** Consumes Task 8 phase B (`shared/addresses.json`), Task 10 (`startLoop`, relay endpoint), Task 13-17 (the app). Produces a public app URL, a long-running keeper (VPS, Fly/Railway-style container, or equivalent) and an allowlist procedure.
+
+- [ ] **Step 1: Host the app** on a public URL (Vercel or equivalent), with env set to the Base Sepolia addresses; mobile-first check on a real phone. The US-user notice and the "points only, testnet" statement are visible on the first screen.
+- [ ] **Step 2: Run the keeper as a service** (not on a laptop): `KEEPER_PRIVATE_KEY` as a host secret, restart policy, health check, log of each `openRound`/`postCandles`/`freezeAll`, alert on a missed `settleDeadline`. Real-candle rounds only during the US session (about 21:30 to 04:00 WIB); outside it, run labeled "replay" rounds.
+- [ ] **Step 3: Gas decision:** verify paymaster support for Smart Wallet on Base Sepolia against current docs (use the `docs` agent); if unavailable, ship a faucet instruction on the join screen.
+- [ ] **Step 4: Invited-user flow:** a documented procedure to add a tester to `AllowlistGate` (owner `setAllowed`), a small script `contracts/script/AllowHumans.s.sol` taking addresses from env, and a join page that explains "ask for access". Open human onboarding (EAS or Coinbase Verifications) stays roadmap.
+- [ ] **Step 5:** Smoke test as an invited outsider on a fresh browser profile: connect, play one round end to end, claim. Record the result in `docs/notes/hosting.md`. Commit `chore: public hosting and invited beta`.
+
+**Gate:** needs the user's explicit yes before any deploy that is publicly reachable or any server rental (rule 8). Keys live only in host secrets, never in the repo.
+
 ## Review follow-ups (open minors carried forward)
 
 - **From Task 2, M1:** `shared/score.ts` `isValid(new Array(3))` and `isValid([z, , z])` throw a `TypeError` instead of returning false, because `Array.prototype.every` skips holes. Fix by checking indices 0..2 explicitly and add `expect(isValid(new Array(3) as unknown as Path)).toBe(false)`. Do it in the first task that edits `shared/score.ts` (Task 9 or 11), before the keeper relay (Task 10) trusts `isValid` on untrusted input.
@@ -446,7 +462,7 @@ MCP tools: `list_rounds`, `get_round`, `get_consensus`, `submit_path`, `get_my_r
 
 ## Dependency order
 
-`0 -> 1`; `2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8`; keeper `9 -> 10` and agents `11 -> 12` start after 8; app `13 -> 14 -> 15 -> 16 -> 17` starts after 8 (Task 13 can start after 4 against Anvil); `19` (final audit) after 17; `18` last, and its submission step needs 19 passed. Cut order if late: 17 and replay first, 11-12 last.
+`0 -> 1`; `2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8`; keeper `9 -> 10` and agents `11 -> 12` start after 8; app `13 -> 14 -> 15 -> 16 -> 17` starts after 8 (Task 13 can start after 4 against Anvil); `19` (final audit) after 17; `20` (public hosting and invited beta) after 8 phase B, 10 and 16; `18` last, and its submission step needs 19 passed. Cut order if late: 17 and replay first, 11-12 last; 20 keeps steps 1-2 (public URL and a running keeper) and drops steps 3-5 last.
 
 ## Self-review notes
 
