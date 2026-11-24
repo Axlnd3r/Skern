@@ -127,6 +127,8 @@ Perfect separation cannot be proven. Defenses, in layers:
 3. **Off-chain signals, shown as flags only:** commits within milliseconds of the window opening, overly regular timing, identical paths across addresses, shared funding sources.
 4. **Reclassification by the owner** is allowed only before the next round's commit window and is logged as a public event. This is a centralization point and is disclosed.
 
+**Known limitation (accepted and disclosed):** creating an identity costs only gas. Registration grants starter points, so one person or contract can create many addresses. The MVP does not prevent this. It limits the damage with the median, the 3-reveal quorum, the entry stake and a per-address bet cap in `GapMarket`. A stronger human or agent gate is roadmap.
+
 **Safe pitch wording:** "verified-human vs declared-agent with transparent soft gating", not "pure humans vs pure AI".
 
 ## 9. Price data and oracle
