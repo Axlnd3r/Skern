@@ -1,1 +1,1 @@
-- [Bug classes](bug_classes.md) — struct aliasing, unrelated-reason negatives, snapshot-only vectors, JS every() holes, scope; lint suppressions: test project-wide only
+- [Bug classes](bug_classes.md) — implementer bug classes, method pitfalls (lint, sed mutants), forward risks for Tasks 4/7/8/12/17/19

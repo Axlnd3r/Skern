@@ -1,6 +1,6 @@
 ---
 name: bug-classes
-description: Bug classes found in Consensus Path reviews (Solidity + TS) plus reviewer method pitfalls; check these first on every new task diff
+description: Bug classes found in Consensus Path reviews (Solidity + TS), reviewer method pitfalls, and forward risks for later tasks (Kind snapshot, lockRoles, sybil); check first on every diff
 metadata:
   type: project
 ---
@@ -24,6 +24,17 @@ Bug classes seen in implementer diffs. Check each one first on every review.
 - **Never test a lint suppression with `forge lint <path>`.** A path argument narrows the lint scope, and some forge lints are interprocedural. `require-revert-in-loop` fires on `ScoreLib.score`'s revert only because `GenVectors._random()` calls the inlined internal function inside a loop. In Task 2 round 1 I wrongly called that suppression dead; the orchestrator disproved it. Always test suppressions with a project-wide `forge lint` (no path) and `forge build --force`.
 
 - **Forward note for Tasks 4-7.** `ScoreLib.sol:45` carries `forge-lint: disable-next-line(require-revert-in-loop)`. Because the warning is reported at the library line, that suppression silences it for every future caller, including any Arena or GapMarket loop over entries. Check revert-in-loop DoS in those loops by hand (one bad entry must not block a batch claim or settle).
+
+- **`forge lint` `missing-events-access-control` fires even when the setter emits an event** (seen on `Points.setMinter/setSpender`, Task 3). Those suppressions are live, not dead. Verified by deleting them in a scratch copy and running a project-wide `forge lint`.
+- **sed `\n` in a single-line `s///` silently does nothing.** Detect no-op mutants with `cmp` against the original. Use line-address sed (for example `92{h;d};93{G}` to swap two lines) for reorder mutants.
+- **Classify equivalent mutants** (for example `x += 0`) as equivalent in the report, not as survivors or test gaps.
+
+## Forward risks to check in later tasks (from Task 3, 2026-11-24)
+- **Task 4 Arena must snapshot `Registry.kindOf` at `commit`.** `reclassify` is blocked only while `anyCommitWindowOpen()`, so it is allowed in the reveal and market windows. If Arena or GapMarket re-reads `kindOf` at reveal, claim or bet, the owner can move a user to the other side mid-round.
+- **`anyCommitWindowOpen()` must use the same boundary as `commit`** (if `commit` accepts `== commitEnd`, the view must return true at `commitEnd`). It must cover every live round, not only the latest. It must be O(1), with no loop over rounds.
+- **Task 8 deploy:** grant the roles to Registry, Arena and GapMarket, then call `Points.lockRoles()`. A deploy test must assert `rolesLocked()` and the exact role set. Until the lock, the owner can grant itself minter or spender and mint or burn anyone's points. The one-way lock plus the set-once `Registry.setArena` means any Arena redeploy forces a Points and Registry redeploy.
+- **Spec-level sybil gap (escalated to orchestrator, not an implementer bug):** `registerAgent` is ungated and nets +900 points per fresh address, so an attacker can buy agent-side quorum, the median and pool share for gas alone. Check what Tasks 4, 7 and 19 do about it.
+- **`house` label is self-declared metadata, so anyone can spoof it.** Tasks 12 and 17 (the app) must identify house agents by a known address list, not by `metadataURI`.
 
 ## Review method that worked (Task 2)
 - Copy `contracts/` (and `shared/`) to `%TEMP%`.
