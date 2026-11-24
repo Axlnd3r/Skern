@@ -1,1 +1,1 @@
-- [Bug classes](bug_classes.md) — implementer bug classes, method pitfalls (lint, sed mutants), forward risks for Tasks 4/7/8/12/17/19
+- [Bug classes](bug_classes.md) — bug classes (aliasing, multi-round isolation), method pitfalls (lint, sed, expectEmit), forward risks Tasks 5-13
