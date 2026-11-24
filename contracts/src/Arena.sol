@@ -25,11 +25,15 @@ struct RoundParams {
 ///      per-kind histograms (3 candles x close/high/low, 201 buckets each).
 ///      Task 5 scope: after `revealEnd` anyone freezes the per-field medians of those histograms
 ///      (`freezeConsensus` one field, `freezeAll` everything) and reads the repaired path.
+///      Task 6 scope: the keeper posts the real candles; both consensus scores and the baseline are
+///      stored; entries claim lazily; a round nobody settled is void and refunds every stake.
 ///
 ///      Time boundaries (decision D2, every comparison is exact):
 ///        commit  : now <  commitEnd
 ///        reveal  : commitEnd <= now < revealEnd
 ///        freeze  : now >= revealEnd (no upper bound: the histograms cannot change any more)
+///        post    : marketEnd + 3*candleSec <= now <= settleDeadline
+///        void    : now > settleDeadline and nothing posted (derived by `isVoid`)
 ///      An entry stores the `Kind` snapshotted at commit; reveal never re-reads the registry,
 ///      so a later `reclassify` cannot move an entry between the human and agent histograms.
 contract Arena is IArenaState {
@@ -58,6 +62,18 @@ contract Arena is IArenaState {
     error FreezeTooEarly();
     error NoReveals();
     error AlreadyFrozen();
+    error NotSettled();
+    error AlreadyPosted();
+    error CandlesTooEarly();
+    error PostWindowClosed();
+    error RoundIsVoid();
+    error InvalidRealCandles();
+    error NotVoidable();
+    error AlreadySettled();
+    error AlreadyVoided();
+    error NotClaimable();
+    error AlreadyClaimed();
+    error NotRevealed();
 
     event KeeperSet(address indexed keeper);
     event RoundOpened(uint256 indexed id, RoundParams params, uint32 bucketWidth);
@@ -66,6 +82,21 @@ contract Arena is IArenaState {
     event FieldFrozen(uint256 indexed id, Kind indexed kind, uint8 field, int32 value);
     event ConsensusReady(uint256 indexed id, Kind indexed kind);
     event KindAbsent(uint256 indexed id, Kind indexed kind);
+    event CandlesPosted(
+        uint256 indexed id,
+        bytes32 sourceHash,
+        uint8 humanScore,
+        uint8 agentScore,
+        bool humanPresent,
+        bool agentPresent,
+        uint8 baseline
+    );
+    event RoundVoided(uint256 indexed id);
+    event Claimed(
+        uint256 indexed id, address indexed who, Kind kind, uint8 score, uint256 reward, uint256 stakeReturned
+    );
+
+    uint256 public constant REWARD_PER_POINT = 1;
 
     /// @dev Number of histogram buckets per field; bucket 100 is the zero bucket.
     uint256 internal constant BUCKETS = 201;
@@ -80,7 +111,21 @@ contract Arena is IArenaState {
         bytes32 hash;
         Kind kind;
         bool revealed;
+        bool claimed;
         Candle[3] path;
+    }
+
+    /// @dev Per-round settlement state, keyed by round id. `posted` and `voided` are mutually exclusive.
+    struct Settlement {
+        bool posted;
+        bool voided;
+        bool humanPresent;
+        bool agentPresent;
+        uint8 humanScore;
+        uint8 agentScore;
+        uint8 baseline;
+        bytes32 sourceHash;
+        Candle[3] real;
     }
 
     address public immutable owner;
@@ -103,6 +148,8 @@ contract Arena is IArenaState {
     mapping(uint256 => mapping(Kind => int32[9])) internal _frozen;
     /// @dev round => kind => bit `field` set once that field is frozen.
     mapping(uint256 => mapping(Kind => uint16)) internal _frozenMask;
+    /// @dev round => settlement state (real candles, scores, baseline, posted/voided flags).
+    mapping(uint256 => Settlement) internal _settlement;
 
     modifier onlyOwner() {
         if (msg.sender != owner) revert NotOwner();
@@ -276,7 +323,7 @@ contract Arena is IArenaState {
         _freezeAll(id);
     }
 
-    /// @dev Shared by `freezeAll` and (Task 6) `postCandles`. Enforces the freeze window itself.
+    /// @dev Shared by `freezeAll` and `postCandles`. Enforces the freeze window itself.
     ///      Bounded work: 2 kinds x 9 fields.
     function _freezeAll(uint256 id) internal {
         _requireFreezable(id);
@@ -371,6 +418,157 @@ contract Arena is IArenaState {
             open = close;
         }
         ready = _frozenMask[id][k] == ALL_FROZEN;
+    }
+
+    // ------------------------------------------------------------------ settle
+
+    /// @notice Keeper-only, once. Posts the three real candles, freezes the consensus itself (so it
+    ///         works whether or not anyone froze) and stores both consensus scores and the baseline.
+    /// @dev Allowed iff `marketEnd + 3*candleSec <= now <= settleDeadline` (decision D2); the upper
+    ///      bound is the exact complement of the void rule, so a late post cannot race a void. A
+    ///      reverted call stores nothing, so an invalid post does not use up the one-shot. Succeeds
+    ///      when a side has no reveals (that side scores 0 and is flagged absent). Check order:
+    ///      keeper, round, already posted, void, too early, too late, candle validity.
+    function postCandles(uint256 id, Candle[3] calldata real, bytes32 sourceHash) external onlyKeeper knownRound(id) {
+        Settlement storage s = _settlement[id];
+        if (s.posted) revert AlreadyPosted();
+        if (s.voided) revert RoundIsVoid();
+        RoundParams storage rp = _rounds[id];
+        // uint256 math: marketEnd + 3 * candleSec can exceed uint64.
+        // forge-lint: disable-next-line(block-timestamp)
+        if (block.timestamp < uint256(rp.marketEnd) + 3 * uint256(rp.candleSec)) revert CandlesTooEarly();
+        // forge-lint: disable-next-line(block-timestamp)
+        if (block.timestamp > rp.settleDeadline) revert PostWindowClosed();
+        Candle[3] memory r = real;
+        if (!ScoreLib.isValid(r)) revert InvalidRealCandles();
+        _freezeAll(id);
+        _store(id, s, r, sourceHash, rp.T);
+    }
+
+    /// @dev Scores the two consensus paths and the all-zero baseline: exactly three `ScoreLib.score`
+    ///      calls, never a loop over participants. Consensus is read only through `_consensusPath`;
+    ///      presence only through `_revealCount`.
+    function _store(uint256 id, Settlement storage s, Candle[3] memory r, bytes32 sourceHash, uint32 T) private {
+        (uint8 hs, bool hp) = _sideScore(id, Kind.Human, r, T);
+        (uint8 as_, bool ap) = _sideScore(id, Kind.Agent, r, T);
+        Candle[3] memory zero = [Candle(0, 0, 0), Candle(0, 0, 0), Candle(0, 0, 0)]; // the flat path
+        uint8 base = ScoreLib.score(zero, r, T);
+        for (uint256 i = 0; i < 3; i++) {
+            s.real[i] = r[i];
+        }
+        s.sourceHash = sourceHash;
+        s.humanScore = hs;
+        s.agentScore = as_;
+        s.humanPresent = hp;
+        s.agentPresent = ap;
+        s.baseline = base;
+        s.posted = true;
+        emit CandlesPosted(id, sourceHash, hs, as_, hp, ap, base);
+    }
+
+    function _sideScore(uint256 id, Kind k, Candle[3] memory r, uint32 T) private view returns (uint8, bool) {
+        if (_revealCount[id][k] == 0) return (0, false);
+        (Candle[3] memory path,) = _consensusPath(id, k);
+        return (ScoreLib.score(path, r, T), true);
+    }
+
+    /// @notice Records a round as void. Anyone, only after `settleDeadline` and only if no candles
+    ///         were posted. Pure bookkeeping: refunds never depend on this call (`isVoid` is derived).
+    function voidRound(uint256 id) external knownRound(id) {
+        Settlement storage s = _settlement[id];
+        if (s.posted) revert AlreadySettled();
+        if (s.voided) revert AlreadyVoided();
+        // forge-lint: disable-next-line(block-timestamp)
+        if (block.timestamp <= _rounds[id].settleDeadline) revert NotVoidable();
+        s.voided = true;
+        emit RoundVoided(id);
+    }
+
+    /// @dev Derived: a round nobody posted by `settleDeadline` is void whether or not `voidRound` ran.
+    ///      Used by `isVoid` and `claim`, so both always agree.
+    function _isVoid(uint256 id, Settlement storage s) private view returns (bool) {
+        // forge-lint: disable-next-line(block-timestamp)
+        return s.voided || (!s.posted && block.timestamp > _rounds[id].settleDeadline);
+    }
+
+    // ------------------------------------------------------------------ claim
+
+    /// @notice Pays `msg.sender` once. Void round: the stake back, nothing else (revealed or not).
+    ///         Settled round: a revealed entry gets the stake plus `(score - baseline) * REWARD_PER_POINT`
+    ///         when its score beats the baseline; an unrevealed entry reverts (its stake was burned at commit).
+    /// @dev Uses the per-round stored stake, T, real candles and baseline (by `id`) and the entry's
+    ///      commit-time kind. `claimed` is set before the only external call (`points.mint`).
+    function claim(uint256 id) external knownRound(id) {
+        Settlement storage s = _settlement[id];
+        bool void_ = _isVoid(id, s);
+        if (!void_ && !s.posted) revert NotClaimable();
+        Entry storage e = _entries[id][msg.sender];
+        Kind kind = e.kind;
+        if (kind == Kind.None) revert NoCommit();
+        if (e.claimed) revert AlreadyClaimed();
+
+        uint8 score = 0;
+        uint256 reward = 0;
+        if (!void_) {
+            if (!e.revealed) revert NotRevealed();
+            (score, reward) = _entryResult(e, s, _rounds[id].T);
+        }
+        uint256 stake = _rounds[id].entryStake;
+
+        e.claimed = true;
+        emit Claimed(id, msg.sender, kind, score, reward, stake);
+        points.mint(msg.sender, stake + reward);
+    }
+
+    /// @dev The single scoring call per claim (lazy); reward only strictly above the baseline.
+    function _entryResult(Entry storage e, Settlement storage s, uint32 T) private view returns (uint8, uint256) {
+        Candle[3] memory p = e.path;
+        Candle[3] memory r = s.real;
+        uint8 score = ScoreLib.score(p, r, T);
+        uint8 base = s.baseline;
+        return (score, score > base ? (uint256(score) - uint256(base)) * REWARD_PER_POINT : 0);
+    }
+
+    /// @notice True once candles are posted.
+    function settled(uint256 id) external view knownRound(id) returns (bool) {
+        return _settlement[id].posted;
+    }
+
+    /// @notice True if the round is void: `voidRound` ran, or nobody posted by `settleDeadline`.
+    function isVoid(uint256 id) external view knownRound(id) returns (bool) {
+        return _isVoid(id, _settlement[id]);
+    }
+
+    /// @notice Consensus scores of both kinds (0..100) and whether each kind had any reveal.
+    /// @dev Reverts `NotSettled` before posting: 0 is a legal score, so zeros would be ambiguous.
+    function consensusScores(uint256 id)
+        external
+        view
+        knownRound(id)
+        returns (uint8 human, uint8 agent, bool humanPresent, bool agentPresent)
+    {
+        Settlement storage s = _settlement[id];
+        if (!s.posted) revert NotSettled();
+        return (s.humanScore, s.agentScore, s.humanPresent, s.agentPresent);
+    }
+
+    /// @notice Score of the all-zero path against the real candles.
+    function baselineScore(uint256 id) external view knownRound(id) returns (uint8) {
+        Settlement storage s = _settlement[id];
+        if (!s.posted) revert NotSettled();
+        return s.baseline;
+    }
+
+    /// @notice The posted real candles and their source hash.
+    function realCandles(uint256 id) external view knownRound(id) returns (Candle[3] memory real, bytes32 sourceHash) {
+        Settlement storage s = _settlement[id];
+        if (!s.posted) revert NotSettled();
+        return (s.real, s.sourceHash);
+    }
+
+    /// @notice True once `who` has claimed in round `id`.
+    function isClaimed(uint256 id, address who) external view knownRound(id) returns (bool) {
+        return _entries[id][who].claimed;
     }
 
     // ------------------------------------------------------------------ views
