@@ -1,1 +1,1 @@
-- [Bug classes](bug_classes.md) — bug classes (aliasing, multi-round isolation), method pitfalls (lint, sed, expectEmit), forward risks Tasks 5-13
+- [Bug classes](bug_classes.md) — bug classes (aliasing, cross-round read sites, presence vs quorum), pitfalls (lint, sed, fuzz FAIL regex), forward risks Tasks 6-13
