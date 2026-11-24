@@ -86,6 +86,12 @@ Bug classes seen in implementer diffs. Check each one first on every review.
 - **Method (re-reviews):** rerun the whole earlier mutant list, not only the survivors (127 mutants take about 15 min). To finish sooner, split the list across two fresh scratch copies and run them in parallel. Check that result ids line up with the mutant list, and `cmp` scratch `src/` against the repo afterwards.
 - **Method:** in this shell, `grep -E "^\[(PASS|FAIL)"` inside a for-loop errored with "Unmatched [". Use `grep -E "PASS|FAIL"` there. In `mut.sh` (read from a file) `^\[FAIL` works.
 
+## Task 8 Phase A (2026-11-24), blobs Deploy.s.sol de54ec9 / Deploy.t.sol d4f7c23 / Points.sol 4da0df0: APPROVE
+- All 6 grants are needed (Registry mint+spend, Arena spend stake + mint refund, GapMarket spend bet + mint payout). 14 wiring mutants (drop each grant, drop setArena, lock first, drop lock, extra owner/keeper role, chain guard drop 84532 / accept 8453, drop setKeeper) all killed by DeployTest in one sed loop (~1 min). Template: `scratchpad/t8a_rev/mut.sh`.
+- `run()` mutant `owner = msg.sender` is NOT unit-tested, but VERIFIED to fail loudly in a key-only simulation ("script failed: NotOwner()", nothing broadcast), so minor only.
+- NatSpec edits change the metadata CBOR tail, not the runtime code. Verified on Points: deployedBytecode differs in full but is equal with the metadata stripped (last 2 bytes = CBOR length). Say "runtime-identical", never "no bytecode change".
+- Forward (Phase B): foundry.toml has no `[rpc_endpoints] base_sepolia`, so the documented `--rpc-url base_sepolia` alias does not resolve. `broadcast/` is gitignored, so shared/addresses.json must be written from logs or the broadcast file by hand; check the addresses match the run-latest.json and that chainId is 84532.
+
 ## Review method that worked (Task 2)
 - Copy `contracts/` (and `shared/`) to `%TEMP%`.
 - Run sed mutants with `forge test --no-match-test <snapshot test>` (hand tests) and with `--match-test` (snapshot), separately.
