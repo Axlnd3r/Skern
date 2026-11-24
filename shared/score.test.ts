@@ -161,4 +161,22 @@ describe("runtime hardening", () => {
     expect(score(maxPath, maxPath, 1)).toBe(100);
     expect(score(minPath, minPath, 4294967295)).toBe(100);
   });
+
+  it("returns false (not a TypeError) for holey arrays", () => {
+    const z: Candle = { close: 0, high: 0, low: 0 };
+    expect(isValid(new Array(3) as unknown as Path)).toBe(false);
+    expect(isValid([z, , z] as unknown as Path)).toBe(false);
+    expect(isValid([, z, z] as unknown as Path)).toBe(false);
+    // a real hole at index 2 (a trailing-comma literal would only be length 2)
+    const hole2 = [z, z, z];
+    delete hole2[2];
+    expect(hole2.length).toBe(3);
+    expect(isValid(hole2 as unknown as Path)).toBe(false);
+    expect(isValid(Object.assign(new Array(3), { 0: z, 1: z }) as unknown as Path)).toBe(false);
+    expect(isValid(Object.assign(new Array(3), { 1: z, 2: z }) as unknown as Path)).toBe(false);
+    expect(isValid(Object.assign(new Array(3), { 0: z, 2: z }) as unknown as Path)).toBe(false);
+    expect(isValid([z, z, z] as unknown as Path)).toBe(true);
+    expect(() => score(new Array(3) as unknown as Path, vectors[0]!.real, 20)).toThrow();
+  });
 });
+

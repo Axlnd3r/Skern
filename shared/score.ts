@@ -36,7 +36,13 @@ function isInt32(x: unknown): boolean {
 /** Runtime shape check: exactly 3 candles, every field an integer within int32 (what ScoreLib can receive). */
 function isWellFormed(p: readonly Candle[]): boolean {
   if (!Array.isArray(p) || p.length !== 3) return false;
-  return p.every((c) => c !== null && typeof c === "object" && isInt32(c.close) && isInt32(c.high) && isInt32(c.low));
+  // Explicit indices, not `every`: `every` skips holes, so `new Array(3)` would pass and later throw a TypeError.
+  for (let i = 0; i < 3; i++) {
+    const c = p[i];
+    if (c === null || c === undefined || typeof c !== "object") return false;
+    if (!isInt32(c.close) || !isInt32(c.high) || !isInt32(c.low)) return false;
+  }
+  return true;
 }
 
 /**
