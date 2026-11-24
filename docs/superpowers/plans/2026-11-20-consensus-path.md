@@ -381,11 +381,24 @@ MCP tools: `list_rounds`, `get_round`, `get_consensus`, `submit_path`, `get_my_r
 - **Forward requirement for Task 7:** Points can mint without limit, so `GapMarket` itself must enforce total claims <= pool.
 - **Forward requirement for Task 8:** `Deploy.s.sol` grants minter/spender to Registry, Arena and GapMarket, wires `setArena`, and only then calls `lockRoles()`; a deploy test asserts `rolesLocked() == true` and the exact role set. An Arena redeploy after the lock forces redeploying Points and Registry.
 - **Forward requirement for Tasks 12 and 17:** the `house` label lives in self-declared `metadataURI`, so the app must identify house agents from a known address list, never from the URI.
-- **Open spec issue from Task 3 (needs a user decision before Task 4 locks Arena stake rules): free sybil identities.** `registerAgent` has no gate and the bond is paid from the grant minted in the same call, so every new address nets 900 points for the cost of gas. A factory contract deploying N children gains N x 900 points, enough to reach the 3-reveal quorum, set the agent median and flood the `GapMarket` pool. This weakens README §8 ("bond", "sybil costly"). Options: (a) no starter grant for agents, so the bond must come from points earned or granted by the owner; (b) agent grant minted only after the bond is paid from an external top-up; (c) accept it for the testnet MVP and disclose it; (d) add a cap on bet size per identity. Also relevant to Task 19's threat model.
+- **Open spec issue from Task 3 (user decision requested; it does not block Task 4, because options a and b change Registry and option d changes GapMarket, while Task 4 only spends the stake): free sybil identities.** `registerAgent` has no gate and the bond is paid from the grant minted in the same call, so every new address nets 900 points for the cost of gas. A factory contract deploying N children gains N x 900 points, enough to reach the 3-reveal quorum, set the agent median and flood the `GapMarket` pool. This weakens README §8 ("bond", "sybil costly"). Options: (a) no starter grant for agents, so the bond must come from points earned or granted by the owner; (b) agent grant minted only after the bond is paid from an external top-up; (c) accept it for the testnet MVP and disclose it; (d) add a cap on bet size per identity. Also relevant to Task 19's threat model.
 
 ## Resolved decisions
 
 - **D1 (approved by the user): delegated reveal.** As written, a person must sign a second transaction inside the reveal window (30 s in demo rounds, 15 min in production) or lose the stake. Proposed change: `reveal(id, who, path, salt)` callable by anyone; the hash already binds `who`, so nobody else can build a valid commit for that address. The app sends path and salt to the keeper, which reveals for the user. Trade-off: the keeper sees human paths before the reveal window (it is already a trusted party). Task 4 therefore uses `reveal(id, who, path, salt)`, Task 10 adds a keeper reveal relay, and the app (Task 13) submits path and salt to that relay right after the commit. The SDK still persists the salt locally as a fallback.
+
+- **D2 (orchestrator ruling, advisor-reviewed, 2026-11-24): Arena time boundaries and storage.** Every task uses these exact comparisons:
+
+  | Action | Allowed when |
+  |---|---|
+  | `commit` | `now < commitEnd` |
+  | `reveal` | `commitEnd <= now < revealEnd` |
+  | `freezeConsensus` / `freezeAll` | `now >= revealEnd` |
+  | `GapMarket.bet` | `revealEnd <= now < marketEnd` |
+  | `postCandles` | `now >= marketEnd + 3*candleSec` |
+  | `voidRound` | `now > settleDeadline` and no candles posted |
+
+  `openRound` requires `entryStake > 0`, `T > 0`, `candleSec > 0`, `now < commitEnd < revealEnd < marketEnd`. Round ids start at 1. `anyCommitWindowOpen() == (now < maxCommitEnd)` where `maxCommitEnd` is a running max over all rounds. Each entry stores `{hash, kind (snapshot at commit), revealed, path}` so Task 6 can score lazily from `claim(id)` alone. `bucketWidth` is computed in `uint256` (`(uint256(T)+9)/10`, minimum 1) and narrowed after, so `T = type(uint32).max` works. `setKeeper` is owner-only and set-once (a lost keeper key means a redeploy; a conscious testnet choice). `Arena` exposes `getRound(id)` and emits `RoundOpened`, `Committed(id, who, kind)`, `Revealed(id, who, kind, path)`.
 
 ## Dependency order
 
