@@ -4,8 +4,8 @@ pragma solidity ^0.8.24;
 /// @title Points
 /// @notice Non-transferable integer points (no decimals). Used for entry stakes, bets and rewards.
 /// @dev Roles are sets: any address the owner marks as minter may `mint`, any spender may `spend`
-///      (burn). The owner manages roles only until it calls the one-way `lockRoles()`; the owner
-///      has no balance-changing power of its own, so it never touches funds.
+///      (burn). Until the one-way `lockRoles()` is called, the owner can grant roles, including
+///      to itself; after `lockRoles()` the role set is frozen.
 ///      `transfer`, `transferFrom` and `approve` exist only to revert, making non-transferability
 ///      provable from the ABI.
 contract Points {

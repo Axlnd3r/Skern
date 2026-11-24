@@ -1,0 +1,1452 @@
+[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "points_",
+        "type": "address",
+        "internalType": "contract Points"
+      },
+      {
+        "name": "registry_",
+        "type": "address",
+        "internalType": "contract Registry"
+      },
+      {
+        "name": "owner_",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "REWARD_PER_POINT",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "anyCommitWindowOpen",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "baselineScore",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "bucketIndex",
+    "inputs": [
+      {
+        "name": "v",
+        "type": "int32",
+        "internalType": "int32"
+      },
+      {
+        "name": "width",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "bucketValue",
+    "inputs": [
+      {
+        "name": "i",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "width",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "int32",
+        "internalType": "int32"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "bucketWidth",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "claim",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "commit",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "h",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "consensus",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "k",
+        "type": "uint8",
+        "internalType": "enum Kind"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "path",
+        "type": "tuple[3]",
+        "internalType": "struct Candle[3]",
+        "components": [
+          {
+            "name": "close",
+            "type": "int32",
+            "internalType": "int32"
+          },
+          {
+            "name": "high",
+            "type": "int32",
+            "internalType": "int32"
+          },
+          {
+            "name": "low",
+            "type": "int32",
+            "internalType": "int32"
+          }
+        ]
+      },
+      {
+        "name": "ready",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "consensusScores",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "human",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "agent",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "humanPresent",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "agentPresent",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "entryOf",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "who",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "kind",
+        "type": "uint8",
+        "internalType": "enum Kind"
+      },
+      {
+        "name": "revealed",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "hash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "path",
+        "type": "tuple[3]",
+        "internalType": "struct Candle[3]",
+        "components": [
+          {
+            "name": "close",
+            "type": "int32",
+            "internalType": "int32"
+          },
+          {
+            "name": "high",
+            "type": "int32",
+            "internalType": "int32"
+          },
+          {
+            "name": "low",
+            "type": "int32",
+            "internalType": "int32"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "freezeAll",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "freezeConsensus",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "k",
+        "type": "uint8",
+        "internalType": "enum Kind"
+      },
+      {
+        "name": "field",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "frozenMask",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "k",
+        "type": "uint8",
+        "internalType": "enum Kind"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getHistogram",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "k",
+        "type": "uint8",
+        "internalType": "enum Kind"
+      },
+      {
+        "name": "field",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint32[201]",
+        "internalType": "uint32[201]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getRound",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct RoundParams",
+        "components": [
+          {
+            "name": "ticker",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "p0",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "T",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "commitEnd",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "revealEnd",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "marketEnd",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "candleSec",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "settleDeadline",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "entryStake",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "hashPath",
+    "inputs": [
+      {
+        "name": "path",
+        "type": "tuple[3]",
+        "internalType": "struct Candle[3]",
+        "components": [
+          {
+            "name": "close",
+            "type": "int32",
+            "internalType": "int32"
+          },
+          {
+            "name": "high",
+            "type": "int32",
+            "internalType": "int32"
+          },
+          {
+            "name": "low",
+            "type": "int32",
+            "internalType": "int32"
+          }
+        ]
+      },
+      {
+        "name": "salt",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "who",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "histogram",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "k",
+        "type": "uint8",
+        "internalType": "enum Kind"
+      },
+      {
+        "name": "field",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "bucket",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isClaimed",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "who",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isPresent",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "k",
+        "type": "uint8",
+        "internalType": "enum Kind"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isVoid",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "keeper",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "openRound",
+    "inputs": [
+      {
+        "name": "p",
+        "type": "tuple",
+        "internalType": "struct RoundParams",
+        "components": [
+          {
+            "name": "ticker",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "p0",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "T",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "commitEnd",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "revealEnd",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "marketEnd",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "candleSec",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "settleDeadline",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "entryStake",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "owner",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "points",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract Points"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "postCandles",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "real",
+        "type": "tuple[3]",
+        "internalType": "struct Candle[3]",
+        "components": [
+          {
+            "name": "close",
+            "type": "int32",
+            "internalType": "int32"
+          },
+          {
+            "name": "high",
+            "type": "int32",
+            "internalType": "int32"
+          },
+          {
+            "name": "low",
+            "type": "int32",
+            "internalType": "int32"
+          }
+        ]
+      },
+      {
+        "name": "sourceHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "realCandles",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "real",
+        "type": "tuple[3]",
+        "internalType": "struct Candle[3]",
+        "components": [
+          {
+            "name": "close",
+            "type": "int32",
+            "internalType": "int32"
+          },
+          {
+            "name": "high",
+            "type": "int32",
+            "internalType": "int32"
+          },
+          {
+            "name": "low",
+            "type": "int32",
+            "internalType": "int32"
+          }
+        ]
+      },
+      {
+        "name": "sourceHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "registry",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract Registry"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "reveal",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "who",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "path",
+        "type": "tuple[3]",
+        "internalType": "struct Candle[3]",
+        "components": [
+          {
+            "name": "close",
+            "type": "int32",
+            "internalType": "int32"
+          },
+          {
+            "name": "high",
+            "type": "int32",
+            "internalType": "int32"
+          },
+          {
+            "name": "low",
+            "type": "int32",
+            "internalType": "int32"
+          }
+        ]
+      },
+      {
+        "name": "salt",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "revealCount",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "k",
+        "type": "uint8",
+        "internalType": "enum Kind"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "roundCount",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "setKeeper",
+    "inputs": [
+      {
+        "name": "keeper_",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "settled",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "voidRound",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "CandlesPosted",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "sourceHash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "humanScore",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "uint8"
+      },
+      {
+        "name": "agentScore",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "uint8"
+      },
+      {
+        "name": "humanPresent",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      },
+      {
+        "name": "agentPresent",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      },
+      {
+        "name": "baseline",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "uint8"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Claimed",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "who",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "kind",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "enum Kind"
+      },
+      {
+        "name": "score",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "uint8"
+      },
+      {
+        "name": "reward",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "stakeReturned",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Committed",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "who",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "kind",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "enum Kind"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ConsensusReady",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "kind",
+        "type": "uint8",
+        "indexed": true,
+        "internalType": "enum Kind"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "FieldFrozen",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "kind",
+        "type": "uint8",
+        "indexed": true,
+        "internalType": "enum Kind"
+      },
+      {
+        "name": "field",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "uint8"
+      },
+      {
+        "name": "value",
+        "type": "int32",
+        "indexed": false,
+        "internalType": "int32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "KeeperSet",
+    "inputs": [
+      {
+        "name": "keeper",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "KindAbsent",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "kind",
+        "type": "uint8",
+        "indexed": true,
+        "internalType": "enum Kind"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Revealed",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "who",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "kind",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "enum Kind"
+      },
+      {
+        "name": "path",
+        "type": "tuple[3]",
+        "indexed": false,
+        "internalType": "struct Candle[3]",
+        "components": [
+          {
+            "name": "close",
+            "type": "int32",
+            "internalType": "int32"
+          },
+          {
+            "name": "high",
+            "type": "int32",
+            "internalType": "int32"
+          },
+          {
+            "name": "low",
+            "type": "int32",
+            "internalType": "int32"
+          }
+        ]
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RoundOpened",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "params",
+        "type": "tuple",
+        "indexed": false,
+        "internalType": "struct RoundParams",
+        "components": [
+          {
+            "name": "ticker",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "p0",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "T",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "commitEnd",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "revealEnd",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "marketEnd",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "candleSec",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "settleDeadline",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "entryStake",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      },
+      {
+        "name": "bucketWidth",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RoundVoided",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "AlreadyClaimed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "AlreadyCommitted",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "AlreadyFrozen",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "AlreadyPosted",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "AlreadyRevealed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "AlreadySettled",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "AlreadyVoided",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CandlesTooEarly",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CommitEndNotInFuture",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CommitWindowClosed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "FreezeTooEarly",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "HashMismatch",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidField",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidKind",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidPath",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidRealCandles",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "KeeperAlreadySet",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "MarketEndNotAfterRevealEnd",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NoCommit",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NoReveals",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotClaimable",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotKeeper",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotOwner",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotRegistered",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotRevealed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotSettled",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotVoidable",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "PostWindowClosed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "RevealEndNotAfterCommitEnd",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "RevealWindowClosed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "RoundIsVoid",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SettleDeadlineTooEarly",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "UnknownRound",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroAddress",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroCandleSec",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroEntryStake",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroT",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroT",
+    "inputs": []
+  }
+]
