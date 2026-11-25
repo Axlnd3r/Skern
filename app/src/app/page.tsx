@@ -45,6 +45,10 @@ export default function TodaysRound() {
         )}
       </section>
 
+      <Link href="/dashboard" className="btn link-btn">
+        Gap Dashboard and replay
+      </Link>
+
       <HouseAgents />
     </main>
   );

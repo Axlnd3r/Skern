@@ -71,3 +71,25 @@ h2 { font-size: 1rem; margin: 0 0 8px; }
 .big-score { font-size: 4rem; font-weight: 700; margin: 4px 0; font-variant-numeric: tabular-nums; }
 .share { display: grid; gap: 8px; margin: 12px 0; }
 .share-img { width: 100%; height: auto; border-radius: 8px; background: #0f1522; }
+
+/* Gap Dashboard (screen 6) */
+:root {
+  --c-human: #60a5fa;
+  --c-agent: #f59e0b;
+  --c-tie: #9ca3af;
+}
+.page.wide { max-width: 960px; }
+.tag.sim { background: transparent; color: var(--orange); border: 1px dashed var(--orange); margin-left: 8px; }
+.winrate { font-size: 1.6rem; margin: 4px 0; display: flex; gap: 16px; flex-wrap: wrap; }
+.dash-table td, .dash-table th { padding: 4px 8px; }
+.trend-fig { margin: 0; }
+.trend { width: 100%; height: auto; background: #0f1522; border-radius: 8px; }
+.trend .trend-grid { stroke: var(--muted); stroke-opacity: 0.35; }
+.trend .trend-zero { stroke: var(--text); stroke-opacity: 0.7; stroke-dasharray: 5 4; }
+.trend .trend-axis { fill: var(--muted); font-size: 11px; }
+.trend .trend-line { stroke: var(--muted); stroke-width: 1.5; }
+.mk-human { fill: var(--c-human); stroke: var(--bg); stroke-width: 1.5; }
+.mk-agent { fill: var(--c-agent); stroke: var(--bg); stroke-width: 1.5; }
+.mk-tie { fill: var(--c-tie); stroke: var(--bg); stroke-width: 1.5; }
+.replay-pick { display: block; margin-bottom: 8px; font-size: 0.9rem; }
+.replay-pick select { background: #0f1522; color: var(--text); border: 1px solid #263149; border-radius: 8px; padding: 6px; }
