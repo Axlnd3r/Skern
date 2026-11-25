@@ -47,11 +47,14 @@ export const LOCAL_CHAIN_ID = 31337;
 const CHAINS: Record<number, Chain> = { [BASE_SEPOLIA_CHAIN_ID]: baseSepolia, [LOCAL_CHAIN_ID]: foundry };
 
 export const arenaAbi: Abi = loadAbi("Arena");
+export const registryAbi: Abi = loadAbi("Registry");
 
 /** `Kind` enum of Registry/Arena. */
 export const KIND_HUMAN = 1;
 export const KIND_AGENT = 2;
 const KIND_NAMES: Record<number, string> = { 0: "none", 1: "human", 2: "agent" };
+/** Longest metadata URI `registerAgent` will send (bytes): it is stored on chain, so keep it small. */
+export const MAX_METADATA_BYTES = 1024;
 
 const DEFAULT_RECEIPT_TIMEOUT_MS = 120_000;
 const DEFAULT_POLL_MS = 5_000;
@@ -297,8 +300,20 @@ export interface RevealOutcome {
   detail?: string;
 }
 
+export interface RegisterOutcome {
+  /** False when this address was already registered as an agent (nothing was sent). */
+  registered: boolean;
+  txHash?: Hex;
+}
+
 export interface Agent {
   readonly address: Address;
+  /**
+   * Registers this address as an agent in the Registry (`registerAgent(metadataURI)`: mints the starter grant and
+   * burns the bond). Idempotent: an address that is already an agent returns `{registered: false}` without sending.
+   * An address registered as a human is refused (WRONG_KIND). The metadata is self-declared and informational.
+   */
+  registerAgent(metadataURI: string): Promise<RegisterOutcome>;
   /** Validates, persists the salt, commits, and schedules the reveal for the window. */
   submitPath(id: bigint, path: Path): Promise<void>;
   /** Manual reveal with the persisted salt. `AlreadyRevealed` counts as success. */
@@ -383,12 +398,93 @@ export function createAgent(deps: AgentDeps): Agent {
     }
   }
 
-  /** Dry run; returns the request to send and a gas limit with 20 percent headroom. */
-  async function dryRun(functionName: string, args: readonly unknown[]): Promise<{ request: Record<string, unknown>; gas: bigint }> {
-    const call = { address: deps.arenaAddress, abi: arenaAbi, functionName, args, account: deps.account };
+  /** Dry run; returns the request to send and a gas limit with 20 percent headroom. Targets the Arena unless told otherwise. */
+  async function dryRun(
+    functionName: string,
+    args: readonly unknown[],
+    target: { address: Address; abi: Abi } = { address: deps.arenaAddress, abi: arenaAbi },
+  ): Promise<{ request: Record<string, unknown>; gas: bigint }> {
+    const call = { address: target.address, abi: target.abi, functionName, args, account: deps.account };
     const sim = await deps.publicClient.simulateContract(call as never);
     const gas = ((await deps.publicClient.estimateContractGas(call as never)) * 12n) / 10n;
     return { request: sim.request as unknown as Record<string, unknown>, gas };
+  }
+
+  // ------------------------------------------------------------------------------------------ registration
+
+  let registryAddr: Address | undefined;
+  async function registryAddress(): Promise<Address> {
+    if (!registryAddr) registryAddr = getAddress((await read("registry")) as string);
+    return registryAddr;
+  }
+
+  async function registeredKind(registry: Address): Promise<number> {
+    return Number(await deps.publicClient.readContract({ address: registry, abi: registryAbi, functionName: "kindOf", args: [who] } as never));
+  }
+
+  async function registerAgent(metadataURI: string): Promise<RegisterOutcome> {
+    // Local checks first: no RPC for input that can never succeed.
+    if (typeof metadataURI !== "string" || metadataURI.length === 0 || Buffer.byteLength(metadataURI, "utf8") > MAX_METADATA_BYTES) {
+      throw new AgentError("BAD_METADATA", `metadata URI must be a non-empty string of at most ${MAX_METADATA_BYTES} bytes`);
+    }
+    await assertDeps(deps);
+    const registry = await registryAddress();
+    const target = { address: registry, abi: registryAbi };
+    const alreadyAgent = async (): Promise<boolean> => {
+      const kind = await registeredKind(registry);
+      if (kind === KIND_AGENT) return true;
+      if (kind !== 0) throw new AgentError("WRONG_KIND", `this address is already registered as a ${KIND_NAMES[kind] ?? kind}, not as an agent`);
+      return false;
+    };
+    if (await alreadyAgent()) return { registered: false };
+
+    let request: Record<string, unknown>;
+    let gas: bigint;
+    try {
+      ({ request, gas } = await dryRun("registerAgent", [metadataURI], target));
+    } catch (e) {
+      const name = revertName(e);
+      throw new AgentError(name ?? "SIMULATION", `registerAgent dry run failed: ${name ?? shortMessage(e)}`);
+    }
+    return withSendLock(async () => {
+      await assertNoPendingTx();
+      if (await alreadyAgent()) return { registered: false }; // registered while we waited for the lock
+
+      // Past this point the transaction may reach the chain: never sign a second one, re-read state instead.
+      const settle = async (why: string, txHash?: Hex): Promise<RegisterOutcome> => {
+        let done = false;
+        try {
+          done = (await registeredKind(registry)) === KIND_AGENT;
+        } catch {
+          /* treated as not registered below */
+        }
+        if (done) {
+          log(`registerAgent: ${why}, but the address is registered`);
+          return { registered: true, ...(txHash ? { txHash } : {}) };
+        }
+        throw new AgentError(
+          "SEND_UNCERTAIN",
+          `registerAgent: ${why}${txHash ? ` (tx ${txHash} may still be pending)` : ""}; NOT re-sending. Call registerAgent again later: it checks the Registry first.`,
+        );
+      };
+
+      let hash: Hex;
+      try {
+        hash = await deps.walletClient.writeContract({ ...request, gas } as never);
+      } catch (e) {
+        return settle(`send failed (${shortMessage(e)})`);
+      }
+      let status: "success" | "reverted";
+      try {
+        status = (await deps.publicClient.waitForTransactionReceipt({ hash, timeout: deps.receiptTimeoutMs ?? DEFAULT_RECEIPT_TIMEOUT_MS })).status;
+      } catch (e) {
+        return settle(`no receipt (${shortMessage(e)})`, hash);
+      }
+      if (status !== "success") return settle(`transaction ${hash} reverted`, hash);
+      if ((await registeredKind(registry)) !== KIND_AGENT) throw new AgentError("MISMATCH", `registerAgent ${hash} mined but the address is not registered as an agent`);
+      log(`registerAgent: registered in ${hash}`);
+      return { registered: true, txHash: hash };
+    });
   }
 
   // ------------------------------------------------------------------------------------------ commit
@@ -648,14 +744,17 @@ export function createAgent(deps: AgentDeps): Agent {
       if (rec.status === "revealed") continue;
       // `pending` records may or may not have landed on chain: scheduleReveal checks the entry itself.
       if (rec.status === "pending") {
-        let e: Entry;
+        let e: Entry | undefined;
         try {
           e = await entryOf(rec.id);
-        } catch {
-          continue;
+        } catch (err) {
+          // One failed read must not silently drop a reveal: the scheduler re-reads the entry itself and retries.
+          log(`resumePending: could not read the entry for round ${rec.id} (${shortMessage(err)}); scheduling the reveal anyway`);
         }
-        if (e.kind === 0 || e.hash.toLowerCase() !== rec.hash.toLowerCase()) continue;
-        markStatus(keyOf(rec.id), { status: "committed" });
+        if (e) {
+          if (e.kind === 0 || e.hash.toLowerCase() !== rec.hash.toLowerCase()) continue;
+          markStatus(keyOf(rec.id), { status: "committed" });
+        }
       }
       scheduleReveal(rec.id);
       out.push(rec.id);
@@ -810,6 +909,7 @@ export function createAgent(deps: AgentDeps): Agent {
 
   return {
     address: who,
+    registerAgent,
     submitPath,
     reveal: revealOnce,
     resumePending,

@@ -110,7 +110,8 @@ export async function main(): Promise<void> {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((e: unknown) => {
-    console.error(`[agent] fatal: ${e instanceof AgentError ? `${e.code}: ${e.message}` : e instanceof Error ? e.message : String(e)}`);
+    // Our own AgentError messages are safe; anything else goes through shortMessage (RPC URLs can carry API keys).
+    console.error(`[agent] fatal: ${e instanceof AgentError ? `${e.code}: ${e.message}` : shortMessage(e)}`);
     process.exit(1);
   });
 }
