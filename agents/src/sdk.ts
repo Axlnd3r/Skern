@@ -49,6 +49,16 @@ const CHAINS: Record<number, Chain> = { [BASE_SEPOLIA_CHAIN_ID]: baseSepolia, [L
 export const arenaAbi: Abi = loadAbi("Arena");
 export const registryAbi: Abi = loadAbi("Registry");
 
+/**
+ * The Arena ABI plus the custom errors of the Points token (e.g. `InsufficientBalance`), which `commit` and
+ * `reveal` bubble up from their calls into Points. Used only to decode a reverted dry run into a name.
+ */
+const arenaCallAbi: Abi = (() => {
+  const own = new Set(arenaAbi.filter((x) => x.type === "error").map((x) => (x as { name: string }).name));
+  const extra = loadAbi("Points").filter((x) => x.type === "error" && !own.has((x as { name: string }).name));
+  return [...arenaAbi, ...extra] as Abi;
+})();
+
 /** `Kind` enum of Registry/Arena. */
 export const KIND_HUMAN = 1;
 export const KIND_AGENT = 2;
@@ -402,7 +412,7 @@ export function createAgent(deps: AgentDeps): Agent {
   async function dryRun(
     functionName: string,
     args: readonly unknown[],
-    target: { address: Address; abi: Abi } = { address: deps.arenaAddress, abi: arenaAbi },
+    target: { address: Address; abi: Abi } = { address: deps.arenaAddress, abi: arenaCallAbi },
   ): Promise<{ request: Record<string, unknown>; gas: bigint }> {
     const call = { address: target.address, abi: target.abi, functionName, args, account: deps.account };
     const sim = await deps.publicClient.simulateContract(call as never);
