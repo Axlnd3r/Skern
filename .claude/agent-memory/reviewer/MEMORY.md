@@ -1,1 +1,1 @@
-- [Bug classes](bug_classes.md) — bug classes (aliasing, cross-round read sites, presence vs quorum, unpinned post-send checks in TS keeper), pitfalls, junction method, forward risks Tasks 6-19
+- [Bug classes](bug_classes.md) — bug classes (aliasing, cross-round read sites, presence vs quorum, unpinned post-send checks, static data shown as live in app), pitfalls, forward risks Tasks 6-20
