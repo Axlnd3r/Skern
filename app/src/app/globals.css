@@ -54,3 +54,17 @@ h2 { font-size: 1rem; margin: 0 0 8px; }
 .back { font-size: 0.8rem; font-weight: 400; margin-left: 8px; color: var(--blue); }
 .sim-label { border: 1px dashed var(--orange); border-radius: 8px; padding: 8px; font-size: 0.85rem; margin: 0 0 12px; }
 .link-btn { display: block; text-align: center; text-decoration: none; }
+.ok { color: #22c55e; }
+.legend { list-style: none; display: flex; gap: 12px; padding: 0; margin: 8px 0; flex-wrap: wrap; font-size: 0.8rem; color: var(--muted); }
+.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; }
+.pools { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 8px 0; }
+.pools p { margin: 4px 0; }
+.tag-side { font-weight: 700; font-size: 0.85rem; }
+.tag-side.human { color: #3b82f6; }
+.tag-side.agent { color: #a78bfa; }
+.bet-form, .claim { display: grid; gap: 8px; margin-top: 12px; border-top: 1px solid #263149; padding-top: 12px; }
+.bet-form fieldset { border: 0; padding: 0; margin: 0; display: flex; gap: 16px; flex-wrap: wrap; }
+.bet-form legend { padding: 0; margin-bottom: 4px; font-size: 0.9rem; }
+.bet-form input[type="text"] { display: block; width: 100%; margin-top: 4px; padding: 8px; border-radius: 8px; border: 1px solid #263149; background: #0f1522; color: var(--text); font-size: 1rem; }
+.market h3 { margin: 0 0 4px; font-size: 1.05rem; }
+.reveal .row { margin-top: 12px; flex-wrap: wrap; }

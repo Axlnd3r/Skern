@@ -69,9 +69,17 @@ function RoundBody(props: {
       </p>
       <PhaseTracker phase={props.phase} closing={props.closing} />
       <p className="hint">{action.hint}</p>
-      {/* Screen 2 (draw) is wired for the commit phase; screens 3 to 5 are separate tasks. */}
+      {/* Screens 2 to 4 are wired; the real commit and reveal transactions (and screen 5) are other tasks. */}
       {props.phase === "commit" ? (
         <Link href="/draw" className="btn primary link-btn">
+          {action.label}
+        </Link>
+      ) : props.phase === "market" ? (
+        <Link href="/market" className="btn primary link-btn">
+          {action.label}
+        </Link>
+      ) : props.phase === "play" || props.phase === "settled" ? (
+        <Link href="/reveal" className="btn primary link-btn">
           {action.label}
         </Link>
       ) : (
@@ -79,6 +87,11 @@ function RoundBody(props: {
           {action.label}
         </button>
       )}
+      {props.phase !== "commit" && props.phase !== "market" ? (
+        <Link href="/market" className="btn link-btn">
+          Market and bets
+        </Link>
+      ) : null}
     </>
   );
 }
