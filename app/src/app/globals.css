@@ -68,3 +68,6 @@ h2 { font-size: 1rem; margin: 0 0 8px; }
 .bet-form input[type="text"] { display: block; width: 100%; margin-top: 4px; padding: 8px; border-radius: 8px; border: 1px solid #263149; background: #0f1522; color: var(--text); font-size: 1rem; }
 .market h3 { margin: 0 0 4px; font-size: 1.05rem; }
 .reveal .row { margin-top: 12px; flex-wrap: wrap; }
+.big-score { font-size: 4rem; font-weight: 700; margin: 4px 0; font-variant-numeric: tabular-nums; }
+.share { display: grid; gap: 8px; margin: 12px 0; }
+.share-img { width: 100%; height: auto; border-radius: 8px; background: #0f1522; }

@@ -1,12 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { useAccount } from "wagmi";
 import { HouseAgents, UsNotice } from "@/components/Notices";
 import { PhaseTracker } from "@/components/PhaseTracker";
+import { ResultSectionView } from "@/components/ResultCard";
 import { RevealPlayer } from "@/components/RevealPlayer";
 import { WalletButton } from "@/components/WalletButton";
-import { deriveReveal } from "@/lib/reveal";
+import { deriveReveal, type RevealReads } from "@/lib/reveal";
 import { formatCountdown, tickerLabel, useLatestRoundId, useRound } from "@/lib/round";
+import { useMyEntry } from "@/lib/useMyEntry";
 import { useRevealReads } from "@/lib/useReveal";
 
 /** Screen 4: Reveal. */
@@ -94,9 +97,41 @@ function RevealBody(props: {
       ) : (
         <p className={view.state === "error" ? "error" : "muted"}>{view.message}</p>
       )}
+      <ResultSection
+        key={String(props.id)}
+        id={props.id}
+        phase={props.phase}
+        ticker={props.ticker}
+        T={props.T}
+        reads={view.state === "ready" ? view.reads : undefined}
+      />
       <Link href="/market" className="btn link-btn">
         Market and bets
       </Link>
     </>
+  );
+}
+
+/** Screen 5: wires the wallet and the entry read into the tested view. */
+function ResultSection(props: {
+  id: bigint;
+  phase: ReturnType<typeof useRound>["phase"];
+  ticker: string;
+  T: number;
+  reads: RevealReads | undefined;
+}) {
+  const { address, isConnected } = useAccount();
+  const entry = useMyEntry(props.id, address, isConnected && props.phase === "settled");
+  if (props.phase === undefined) return null;
+  return (
+    <ResultSectionView
+      phase={props.phase}
+      reads={props.reads}
+      T={props.T}
+      roundId={props.id}
+      ticker={props.ticker}
+      connected={isConnected}
+      entry={entry}
+    />
   );
 }
