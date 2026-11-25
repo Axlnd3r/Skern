@@ -127,6 +127,13 @@ Blobs: candles.ts 4f2eb80, rounds.ts c9521f8, t.ts 09b8a2d, candles.test f29cdff
 - Forward (Task 17): `agents/src/house/types.ts` imports `node:fs` at top level and the app may not import agents/ (rule 2). The house list for the app must come via shared/addresses.json or app env, same checksum/dedupe rules.
 - Pattern: when untrusted text is wrapped in an XML-ish tag, check the tag can be closed from inside.
 
+## Task 15 market + reveal round 1 (2026-11-25): REJECT (1 major, minors)
+- Verified OK vs source: Side Human=0/Agent=1, Kind 1/2, bet window = phase market, cap summed both sides, claim floor formula, status codes, uint8 -> number / uint256 -> bigint, Candle {close,high,low} order, overlay only when `ready`, realCandles only when settled, addresses == shared/addresses.json.
+- **Major, recurrence of "uncertain send" in the APP:** `waitForTransactionReceipt` rejects on any non-NotFound RPC error (viem 2.58 waitForTransactionReceipt.js:355, e.g. public-RPC 429) and after 180 s; useMarket's catch shows "The transaction failed" and drops the hash, so a user re-bets and double-stakes within the cap. **How to apply:** in every wallet flow, errors AFTER `writeContract` returned a hash must be "unconfirmed, see tx link", never "failed".
+- Gaps to check next time: hook click paths (SIDE_CODE swap mutant survives, no test passes the side into `bet` args); effect-driven timers untested under renderToStaticMarkup; error-name tables listing errors absent from the ABI passed to simulate (Points/Arena errors never decode with gapMarketAbi).
+- **Round 2 (2026-11-25): APPROVE** (minors). `marketTx.ts` injected-deps click path (template for app tx flows: log order readFresh/simulate/write/wait, simulate-args capture, rejecting waitReceipt -> `unconfirmed` + busy). Residual accepted: tx state is React-only, so remount/reload/second tab can send a 2nd bet (bounded by the 200 cap). jsdom 31.0.1 needs node ^22.22.2||^24.15||>=26 and app has no `engines` field (Task 20: pin Node 24). Lockfile scan: only `prepare` scripts (do not run for registry installs).
+- Ruling: reveal "score so far" (hybrid real[0..n) + pred rest, via shared `score`) may ship (betting closed, step 3 exact + cross-checked) but its "remaining candles match" wording is false for the D term of the first unrevealed candle (open = real close).
+
 ## Review method that worked (Task 2)
 - Copy `contracts/` (and `shared/`) to `%TEMP%`.
 - Run sed mutants with `forge test --no-match-test <snapshot test>` (hand tests) and with `--match-test` (snapshot), separately.
