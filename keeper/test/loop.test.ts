@@ -107,8 +107,8 @@ interface FeedCall {
 function fakeFeed(state: { windowStart?: number; online: boolean; calls: FeedCall[] }): PriceFeed {
   return {
     mode: "live",
-    attributionBase: "https://alpaca.markets/data",
-    attributionParams: { feed: "iex" },
+    attributionBase: "https://twelvedata.com/",
+    attributionParams: { interval: "1min" },
     async bars(ticker, from, to) {
       state.calls.push({ ticker, from, to });
       if (!state.online) return [];
@@ -228,7 +228,7 @@ describe("round loop", () => {
     const post = chain.s.posts[0]!;
     expect(post.id).toBe(1n);
     expect(post.real.map((c) => c.close)).toEqual([10, 25, 15]);
-    expect(post.url).toBe(`https://alpaca.markets/data?feed=iex&mode=live&from=${r.marketEnd}&to=${candlesEnd}`);
+    expect(post.url).toBe(`https://twelvedata.com/?interval=1min&mode=live&from=${r.marketEnd}&to=${candlesEnd}`);
     expect(loop.state().rounds[0]).toMatchObject({ stage: "done", outcome: "settled" });
     // the round is done: later ticks do nothing more for it
     await loop.tick();

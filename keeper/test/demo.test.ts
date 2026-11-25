@@ -31,8 +31,8 @@ const flat = (t: number, p: number): Bar => ({ t, open: p, high: p, low: p, clos
 function feedOf(bars: Bar[], calls: { from: number; to: number }[] = []): PriceFeed {
   return {
     mode: "live",
-    attributionBase: "https://alpaca.markets/data",
-    attributionParams: { feed: "iex" },
+    attributionBase: "https://twelvedata.com/",
+    attributionParams: { interval: "1min" },
     async bars(_t, from, to) {
       calls.push({ from, to });
       return bars.filter((b) => b.t >= from && b.t < to);

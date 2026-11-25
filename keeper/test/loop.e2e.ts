@@ -5,7 +5,7 @@
 // the loop calls freezeAll right after revealEnd, a bet is placed on each side, the loop posts the candles, and
 // GapMarket resolves (`settled(id) === true`, `GapMarket.status(id) === 2`).
 //
-// The price source is a mock (no network, no Alpaca key). Only anvil's public development mnemonic is used.
+// The price source is a mock (no network, no Twelve Data key). Only anvil's public development mnemonic is used.
 // If anvil or forge are missing this test FAILS loudly on purpose (it never skips silently).
 //
 // Vitest only collects `*.test.ts`, so `loop.e2e.test.ts` imports this file; run it with
@@ -94,8 +94,8 @@ const LEVELS = [100.1, 100.25, 100.15];
 const feedState = { windowStart: undefined as number | undefined, calls: 0 };
 const feed: PriceFeed = {
   mode: "live",
-  attributionBase: "https://alpaca.markets/data",
-  attributionParams: { feed: "iex" },
+  attributionBase: "https://twelvedata.com/",
+  attributionParams: { interval: "1min" },
   async bars(_ticker, from, to) {
     feedState.calls++;
     const out = [];
@@ -307,7 +307,7 @@ describe("keeper loop end to end on anvil", () => {
       { close: 15, high: 25, low: 15 },
     ]);
     // licence-safe source: generic attribution with the window only, and its hash is on chain
-    const url = `https://alpaca.markets/data?feed=iex&mode=live&from=${marketEnd}&to=${marketEnd + 900}`;
+    const url = `https://twelvedata.com/?interval=1min&mode=live&from=${marketEnd}&to=${marketEnd + 900}`;
     expect(hash).toBe(keccak256(stringToBytes(url)));
 
     // humans (who drew the real path) beat the flat agents, by the shared scoring code

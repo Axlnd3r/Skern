@@ -2,7 +2,7 @@
 // the reveal relay, and the loop that drives the round to settlement.
 //
 // Run (needs a TypeScript runner, for example `pnpm dlx tsx keeper/src/demo.ts`; environment in keeper/.env.example):
-//   RPC_URL, CHAIN_ID, ARENA_ADDRESS, KEEPER_PRIVATE_KEY, APCA_API_KEY_ID, APCA_API_SECRET_KEY
+//   RPC_URL, CHAIN_ID, ARENA_ADDRESS, KEEPER_PRIVATE_KEY, TWELVEDATA_API_KEY
 //   optional: DEMO_TICKER, DEMO_ENTRY_STAKE, DEMO_REPLAY_OFFSET_SEC, KEEPER_STATE_DIR, RELAY_PORT, RELAY_HOST,
 //             RELAY_ALLOW_ORIGIN, MINE_ON_TICK (anvil only)
 //
@@ -12,13 +12,13 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { createAlpacaSource, loadAlpacaCredentials } from "./alpaca";
 import { Mutex } from "./lock";
 import { startLoop, type LoopHandle } from "./loop";
 import { FileQueueStore, createRelay, createRelayChain, type Relay } from "./relay";
 import { createKeeperDeps, loadKeeperConfig, type KeeperDeps } from "./rounds";
 import { replayFeed, type PriceFeed, type RoundTemplate } from "./source";
 import { FileStateStore } from "./state";
+import { createTwelveDataSource, loadTwelveDataKey, throttleFeed } from "./twelvedata";
 
 /** README §3 demo windows. */
 export const DEMO_CANDLE_SEC = 300;
@@ -68,7 +68,9 @@ export async function startDemo(o: DemoOptions = {}): Promise<DemoHandle> {
   const env = o.env ?? process.env;
   const log = o.log ?? ((m: string) => console.log(`[demo] ${m}`));
   const deps = o.deps ?? (await createKeeperDeps(loadKeeperConfig(env))); // refuses a key that is not arena.keeper()
-  let feed: PriceFeed = o.feed ?? createAlpacaSource({ ...loadAlpacaCredentials(env), log: () => {} });
+  // The loop polls every 5 s; the throttle keeps a failing loop at one provider call per minute so the free plan's
+  // daily quota (800 credits) survives a demo started while the US market is closed.
+  let feed: PriceFeed = o.feed ?? throttleFeed(createTwelveDataSource({ apiKey: loadTwelveDataKey(env), log: () => {} }));
   if (env.DEMO_REPLAY_OFFSET_SEC) feed = replayFeed(feed, Number(env.DEMO_REPLAY_OFFSET_SEC));
   const stateDir = env.KEEPER_STATE_DIR ?? join(homedir(), ".consensus-path", "keeper");
   const lock = new Mutex();
@@ -94,6 +96,9 @@ export async function startDemo(o: DemoOptions = {}): Promise<DemoHandle> {
         entryStake: env.DEMO_ENTRY_STAKE ? BigInt(env.DEMO_ENTRY_STAKE) : undefined,
       }),
       maxRounds: 1,
+      // Candles posted on chain are permanent. Twelve Data can serve the last bars of a window late or partial, so
+      // wait 60 s (not the loop default of 15 s) after the window ends before reading them.
+      dataDelaySec: 60,
       mineOnTick: env.MINE_ON_TICK === "1",
       log,
     });
