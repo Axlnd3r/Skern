@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { HouseAgents, UsNotice } from "@/components/Notices";
 import { PhaseTracker } from "@/components/PhaseTracker";
 import { WalletButton } from "@/components/WalletButton";
@@ -68,10 +69,16 @@ function RoundBody(props: {
       </p>
       <PhaseTracker phase={props.phase} closing={props.closing} />
       <p className="hint">{action.hint}</p>
-      {/* Screens 2 to 5 are separate tasks; the action is shown but not yet wired. */}
-      <button type="button" className="btn primary" disabled title="This screen is not available yet">
-        {action.label}
-      </button>
+      {/* Screen 2 (draw) is wired for the commit phase; screens 3 to 5 are separate tasks. */}
+      {props.phase === "commit" ? (
+        <Link href="/draw" className="btn primary link-btn">
+          {action.label}
+        </Link>
+      ) : (
+        <button type="button" className="btn primary" disabled title="This screen is not available yet">
+          {action.label}
+        </button>
+      )}
     </>
   );
 }

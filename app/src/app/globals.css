@@ -35,3 +35,22 @@ h2 { font-size: 1rem; margin: 0 0 8px; }
 .agents { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
 .tag { background: var(--orange); color: #111; border-radius: 4px; padding: 1px 6px; font-size: 0.7rem; font-weight: 700; margin-left: 6px; }
 .tracker li .closing { font-weight: 700; color: #fde68a; }
+.chart { width: 100%; height: auto; background: #0f1522; border-radius: 8px; touch-action: none; user-select: none; }
+.chart .baseline { stroke: var(--muted); stroke-opacity: 0.45; stroke-dasharray: 4 4; }
+.chart .axis { fill: var(--muted); font-size: 11px; }
+.chart .wick { stroke: var(--text); stroke-width: 2; }
+.chart .body.up { fill: #22c55e; }
+.chart .body.down { fill: var(--red); }
+.chart .handle { stroke: #0b0f17; stroke-width: 2; cursor: ns-resize; touch-action: none; }
+.chart .handle.h-close { fill: var(--blue); }
+.chart .handle.h-high { fill: #22c55e; }
+.chart .handle.h-low { fill: var(--orange); }
+.chart .handle:focus-visible, .chart .handle.active { stroke: #fff; }
+.values { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; margin-top: 8px; }
+.values th, .values td { text-align: right; padding: 2px 8px; font-size: 0.85rem; }
+.values th:first-child, .values td:first-child { text-align: left; }
+.row { display: flex; gap: 8px; align-items: center; }
+.row .btn.primary { width: auto; flex: 1; }
+.back { font-size: 0.8rem; font-weight: 400; margin-left: 8px; color: var(--blue); }
+.sim-label { border: 1px dashed var(--orange); border-radius: 8px; padding: 8px; font-size: 0.85rem; margin: 0 0 12px; }
+.link-btn { display: block; text-align: center; text-decoration: none; }
