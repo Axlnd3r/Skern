@@ -1,0 +1,14 @@
+{
+  "chainId": 84532,
+  "network": "base-sepolia",
+  "deployer": "0x48090D421F8B220431e46C6F05723C1C87710730",
+  "keeper": "0x576584847bd041427a6d04691Fca5a83DFE1Ade4",
+  "deployBlock": 63274211,
+  "contracts": {
+    "Points": "0xF6FD4323D989086FaBBd9E962417da2A03B98644",
+    "AllowlistGate": "0x959f5D52e456A264Acbf4665f333F17B4ab1B472",
+    "Registry": "0xe6D038560565fF9127708731F3a360b7279Dce37",
+    "Arena": "0x4Da1FBb0f99D27F566Aa08243A4D6B8276E69AB7",
+    "GapMarket": "0x8b286cd3c062ef7afb4Ab4318689309824e425fa"
+  }
+}
