@@ -121,6 +121,12 @@ Blobs: candles.ts 4f2eb80, rounds.ts c9521f8, t.ts 09b8a2d, candles.test f29cdff
 - No per-account send mutex: concurrent submitPath + autoReveal pass assertNoPendingTx together and share a nonce (self-heals via SEND_UNCERTAIN retry; minor).
 - **Round 2 (2026-11-25): APPROVE** (minors only). All 6 fixed with tests that die on the mutant: late-mine via `evm_setAutomine false` + rejected receipts (good template for "uncertain send" tests), gated clock, stalled-chain clock (sleep moves only wall time), writeContract overlap counter for the lock. New minors: dry run and window check happen OUTSIDE the send lock, so a queued sender uses a stale request (2nd identical commit/reveal reverts, gas only; reveal can go out after revealEnd); resumePending silently `continue`s when entryOf throws; fatal path at mcp.ts:113 still prints raw e.message (URL) to stderr. Pattern: when a lock is added, check that the "already done?" check and window guards are re-run INSIDE the lock.
 
+## Task 12 house agents round 1 (2026-11-25): APPROVE (minors only)
+- Integer path construction verified by reasoning: clampInt caps at min(10*T, INT32_MAX) (10*uint32max exact < 2^53), BigInt divRound/meanInt, NaN only reachable via repairPath's own export (callers reject NaN; JSON 1e999 -> Infinity -> clamped). SDK 1.10.0 `Model` union contains `claude-sonnet-5-5`; RequestOptions has `signal`; no install scripts in the 8 new lock packages.
+- Minors: `<data>` delimiter breakable by a headline containing `</data>` (JSON.stringify does not escape `<`), effect bounded to the house prediction; `isAddress(strict:false)` accepts a mixed-case typo with a bad checksum; registerAgent lost-receipt/revert/in-lock re-check paths have no mocked test (chain `AlreadyRegistered` makes double-send gas-only).
+- Forward (Task 17): `agents/src/house/types.ts` imports `node:fs` at top level and the app may not import agents/ (rule 2). The house list for the app must come via shared/addresses.json or app env, same checksum/dedupe rules.
+- Pattern: when untrusted text is wrapped in an XML-ish tag, check the tag can be closed from inside.
+
 ## Review method that worked (Task 2)
 - Copy `contracts/` (and `shared/`) to `%TEMP%`.
 - Run sed mutants with `forge test --no-match-test <snapshot test>` (hand tests) and with `--match-test` (snapshot), separately.

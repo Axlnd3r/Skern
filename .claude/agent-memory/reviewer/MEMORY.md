@@ -1,1 +1,1 @@
-- [Bug classes](bug_classes.md) — bug classes (aliasing, cross-round reads, presence vs quorum, unpinned post-send checks, uncertain send drops next step, static-as-live, isNaN), pitfalls, forward risks
+- [Bug classes](bug_classes.md) — bug classes (aliasing, cross-round reads, presence vs quorum, unpinned post-send checks, uncertain send drops next step, static-as-live, isNaN, breakable prompt delimiter), pitfalls, forward risks
