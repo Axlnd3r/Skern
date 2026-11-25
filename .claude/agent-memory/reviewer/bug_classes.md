@@ -109,6 +109,11 @@ Blobs: candles.ts 4f2eb80, rounds.ts c9521f8, t.ts 09b8a2d, candles.test f29cdff
 - parseRoundParams negatives are thin (deleting `revealEnd < marketEnd`, `T === 0`, ticker regex all survive); rated minor.
 - **Round 2 (2026-11-25): APPROVE.** All 6 fixed (house heading static, `isClosing` <= 6 s in commit/reveal/market, `parseStatus`, pure `deriveRound`, 41 tests). New minor: "prefer cached data" has no stale flag, so if the RPC dies the block time freezes and the countdown sits still with no error. The "cached wins" branch (round.ts:233) lives in the hook and is untested. Pattern: a fix for "transient error flicker" tends to create "silent stale data"; check both.
 
+## Task 14 draw screen round 1 (2026-11-25): APPROVE (minors only)
+- path.ts normalize/clamp/move verified by reasoning: widening + open propagation are killed by deterministic unit tests AND the fc.double property test (fc.double defaults include NaN/+-Inf/-0). The drag property test asserts `handlesToPath(hs) == hs`, so the repair inside handlesToPath cannot mask a moveHandle bug; good template.
+- Bug class **"NaN guard via Number.isNaN misses undefined"**: `toInt32` checks `Number.isNaN(v)` then `Math.round(v)`; `undefined` (holes, `new Array(9)`) gives NaN that slips through the clamp (`NaN > MAX` is false). Use `Number.isFinite` or coerce first. Minor when the UI never builds such arrays.
+- Forward (Task 15, real commit): the onCommit callback carries only the path, not the round id, and click-time phase/closing are render-time props. The real commit must bind path + round id + salt, re-read the phase at click, persist the salt before sending. A React ternary with different child positions remounts DrawChart (practice -> live loses the drawing).
+
 ## Review method that worked (Task 2)
 - Copy `contracts/` (and `shared/`) to `%TEMP%`.
 - Run sed mutants with `forge test --no-match-test <snapshot test>` (hand tests) and with `--match-test` (snapshot), separately.
