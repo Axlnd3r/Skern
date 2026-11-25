@@ -84,7 +84,7 @@ function roundParamComponents(): AbiParam[] {
 }
 
 type ParamValue = bigint | number | Hex;
-type RoundParamsObj = Record<string, ParamValue>;
+export type RoundParamsObj = Record<string, ParamValue>;
 
 // ---------------------------------------------------------------------------------------------- types
 
@@ -233,7 +233,7 @@ function logger(deps: KeeperDeps): (m: string) => void {
   return deps.log ?? ((m) => console.log(`[keeper] ${m}`));
 }
 
-function shortMessage(e: unknown): string {
+export function shortMessage(e: unknown): string {
   if (e instanceof BaseError) return e.shortMessage;
   return e instanceof Error ? e.message : String(e);
 }
@@ -268,7 +268,7 @@ async function chainNow(deps: KeeperDeps): Promise<number> {
  * Limit: it only sees what the connected RPC node knows; a transaction sitting only in another node's
  * mempool is invisible to a public RPC.
  */
-async function assertNoPendingTx(deps: KeeperDeps): Promise<void> {
+export async function assertNoPendingTx(deps: KeeperDeps): Promise<void> {
   const address = deps.account.address;
   const [latest, pending] = await Promise.all([
     deps.publicClient.getTransactionCount({ address, blockTag: "latest" }),
@@ -343,7 +343,7 @@ export function validateRoundConfig(cfg: RoundConfig, now: number): void {
 }
 
 /** Builds the `RoundParams` struct using the field names and types the ABI declares. */
-function buildRoundParams(cfg: RoundConfig): RoundParamsObj {
+export function buildRoundParams(cfg: RoundConfig): RoundParamsObj {
   const values: Record<string, bigint | Hex> = {
     ticker: stringToHex(cfg.ticker, { size: 32 }),
     p0: cfg.p0,
@@ -375,7 +375,7 @@ function buildRoundParams(cfg: RoundConfig): RoundParamsObj {
   return out;
 }
 
-function sameParams(a: Record<string, unknown>, b: RoundParamsObj): boolean {
+export function sameParams(a: Record<string, unknown>, b: RoundParamsObj): boolean {
   for (const c of roundParamComponents()) {
     const x = a[c.name];
     const y = b[c.name];
