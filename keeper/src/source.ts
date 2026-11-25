@@ -10,7 +10,7 @@
 import { toBps, computeT } from "./t";
 import { buildCandles, type Bar, type CandleSource } from "./candles";
 import type { RoundConfig } from "./rounds";
-import type { Path } from "../../shared/score";
+import type { Candle, Path } from "../../shared/score";
 
 export const P0_SCALE = 1_000_000n;
 const P0_SCALE_NUM = 1_000_000;
@@ -166,14 +166,65 @@ export function roundTimes(t: RoundTemplate, now: number): Pick<RoundConfig, "co
   return { commitEnd, revealEnd, marketEnd, settleDeadline: marketEnd + 3 * t.candleSec + t.settleGraceSec };
 }
 
+/** At most this many history candles are kept per round (the agents read the last 50 anyway). */
+export const MAX_HISTORY_CANDLES = 50;
+
+/**
+ * The complete `intervalSec` candles in `[fromTs, now)`, oldest first, as integer bp relative to `p0` (the on-chain
+ * value of the round they belong to): close = close of the last bar of the interval, high / low = the extremes of the
+ * bar highs / lows. At most `MAX_HISTORY_CANDLES` (the newest ones). Only bp leave this function, never a price.
+ *
+ * "Complete" means the interval starts at or after `fromTs` (the start of the fetch: an interval cut off there has
+ * understated extremes), ends at or before `now` (the current partial interval is ignored, like in
+ * `closesPerInterval`), and holds every one of its `intervalSec / BAR_SEC` one-minute bars (a gap would understate
+ * high/low, so that interval is left out rather than invented).
+ */
+export function historyCandles(bars: readonly Bar[], intervalSec: number, fromTs: number, now: number, p0: bigint): Candle[] {
+  const p0f = p0ToFloat(p0);
+  const perInterval = Math.floor(intervalSec / BAR_SEC);
+  const byBucket = new Map<number, Map<number, Bar>>();
+  for (const b of bars) {
+    const start = Math.floor(b.t / intervalSec) * intervalSec;
+    if (start < fromTs || start + intervalSec > now) continue; // cut off at the start, or still running
+    let m = byBucket.get(start);
+    if (!m) byBucket.set(start, (m = new Map()));
+    m.set(b.t, b); // one bar per timestamp
+  }
+  const out: Candle[] = [];
+  for (const k of [...byBucket.keys()].sort((a, b) => a - b)) {
+    const m = byBucket.get(k) as Map<number, Bar>;
+    if (m.size !== perInterval) continue; // a missing bar: not a complete candle
+    const inB = [...m.values()].sort((x, y) => x.t - y.t);
+    out.push({
+      close: toBps((inB[inB.length - 1] as Bar).close, p0f),
+      high: toBps(Math.max(...inB.map((x) => x.high)), p0f),
+      low: toBps(Math.min(...inB.map((x) => x.low)), p0f),
+    });
+  }
+  return out.slice(-MAX_HISTORY_CANDLES);
+}
+
 /**
  * Builds the config of the next round from recent bars: P0 = close of the newest bar (must be fresh),
  * T = `computeT` over the closes of the complete `candleSec` intervals. Throws `DataError` when there is no
  * usable data (nothing is opened then).
  */
 export async function planRound(t: RoundTemplate, feed: PriceFeed, now: number): Promise<RoundConfig> {
+  return (await planRoundWithHistory(t, feed, now)).config;
+}
+
+/**
+ * `planRound` plus the pre-round history of the SAME bars (no second provider call), as int32 bp relative to the
+ * new round's P0. If the history cannot be converted (absurd prices) it is empty; the round still opens.
+ */
+export async function planRoundWithHistory(
+  t: RoundTemplate,
+  feed: PriceFeed,
+  now: number,
+): Promise<{ config: RoundConfig; historyBp: Candle[] }> {
   const history = t.historySec ?? 24 * t.candleSec;
-  const bars = await feed.bars(t.ticker, now - history, now, BAR_SEC);
+  const fromTs = now - history;
+  const bars = await feed.bars(t.ticker, fromTs, now, BAR_SEC);
   if (bars.length === 0) throw new DataError("NO_DATA", "the feed returned no bars; not opening a round");
   for (const b of bars) checkBar(b);
   const sorted = [...bars].sort((a, b) => a.t - b.t);
@@ -182,7 +233,7 @@ export async function planRound(t: RoundTemplate, feed: PriceFeed, now: number):
   const closes = closesPerInterval(sorted, t.candleSec, now);
   const need = t.minCloses ?? 4;
   if (closes.length < need) throw new DataError("NO_DATA", `only ${closes.length} complete candle closes, need ${need}; not opening a round`);
-  return {
+  const config: RoundConfig = {
     ticker: t.ticker,
     p0: priceToP0(newest.close),
     T: computeT(closes),
@@ -190,6 +241,13 @@ export async function planRound(t: RoundTemplate, feed: PriceFeed, now: number):
     entryStake: t.entryStake,
     ...roundTimes(t, now),
   };
+  let historyBp: Candle[];
+  try {
+    historyBp = historyCandles(sorted, t.candleSec, fromTs, now, config.p0);
+  } catch {
+    historyBp = [];
+  }
+  return { config, historyBp };
 }
 
 // ---------------------------------------------------------------------------------------------- source URL, replay

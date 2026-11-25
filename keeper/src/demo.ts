@@ -12,7 +12,9 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { roundContextFromState } from "./context";
 import { Mutex } from "./lock";
+import type { LoopOps } from "./ops";
 import { startLoop, type LoopHandle } from "./loop";
 import { FileQueueStore, createRelay, createRelayChain, type Relay } from "./relay";
 import { createKeeperDeps, loadKeeperConfig, type KeeperDeps } from "./rounds";
@@ -53,6 +55,8 @@ export interface DemoOptions {
   /** Injected deps and feed (tests); otherwise built from the environment. */
   deps?: KeeperDeps;
   feed?: PriceFeed;
+  /** Injected chain operations for the loop (tests); the reveal relay still uses `deps`. */
+  ops?: LoopOps;
   log?: (msg: string) => void;
 }
 
@@ -75,8 +79,12 @@ export async function startDemo(o: DemoOptions = {}): Promise<DemoHandle> {
   const stateDir = env.KEEPER_STATE_DIR ?? join(homedir(), ".consensus-path", "keeper");
   const lock = new Mutex();
 
+  // The relay starts before the loop (it must accept reveals at once); the context route answers 404 until the
+  // loop exists, then reads the loop's in-memory state (history stored when the round was planned).
+  let loopRef: LoopHandle | undefined;
   const relay = createRelay({
     chain: createRelayChain(deps, lock),
+    contextOf: (id) => (loopRef ? roundContextFromState(loopRef.state(), id) : undefined),
     queueStore: new FileQueueStore(join(stateDir, "relay-queue.json")),
     allowOrigins: (env.RELAY_ALLOW_ORIGIN ?? "").split(",").map((s) => s.trim()).filter(Boolean),
     log,
@@ -88,6 +96,7 @@ export async function startDemo(o: DemoOptions = {}): Promise<DemoHandle> {
   try {
     loop = await startLoop({
       deps,
+      ops: o.ops,
       lock,
       feed,
       store: new FileStateStore(join(stateDir, "keeper-state.json")),
@@ -106,6 +115,7 @@ export async function startDemo(o: DemoOptions = {}): Promise<DemoHandle> {
     await relay.close();
     throw e;
   }
+  loopRef = loop;
   return {
     loop,
     relay,

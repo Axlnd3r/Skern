@@ -7,6 +7,7 @@
 import { closeSync, fsyncSync, mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeSync } from "node:fs";
 import { dirname } from "node:path";
 import { randomBytes } from "node:crypto";
+import type { Candle } from "../../shared/score";
 import type { RoundConfig } from "./rounds";
 
 export type Stage = "planned" | "open" | "frozen" | "done";
@@ -42,6 +43,12 @@ export interface StoredRound {
   outcome?: Outcome;
   /** The missed-settleDeadline alert was already raised. */
   missedAlerted?: boolean;
+  /**
+   * Pre-round candles from the bars the keeper planned this round with: int32 bp relative to this round's P0,
+   * oldest first, `{close, high, low}`. Served by `GET /context/:id`, so no provider call is needed later.
+   * Absent in state files written before this field existed (served as an empty history).
+   */
+  historyBp?: Candle[];
 }
 
 export interface KeeperState {
@@ -95,6 +102,17 @@ function parseState(text: string, file: string): KeeperState {
     if (r === null || typeof r !== "object") return bad("round");
     if (!Number.isSafeInteger(r.seq) || !STAGES.includes(r.stage) || typeof r.fromBlock !== "string" || !/^\d+$/.test(r.fromBlock)) return bad("round fields");
     if (r.id !== undefined && !/^[1-9]\d*$/.test(r.id)) return bad("round id");
+    if (r.historyBp !== undefined) {
+      if (!Array.isArray(r.historyBp) || r.historyBp.length > 1000) return bad("round history");
+      for (const c of r.historyBp as unknown[]) {
+        const o = c as Record<string, unknown> | null;
+        if (o === null || typeof o !== "object") return bad("round history candle");
+        for (const k of ["close", "high", "low"]) {
+          const v = o[k];
+          if (typeof v !== "number" || !Number.isInteger(v) || v < -2147483648 || v > 2147483647) return bad("round history candle");
+        }
+      }
+    }
     const c = r.cfg as StoredConfig | undefined;
     if (!c || typeof c.ticker !== "string" || !/^\d+$/.test(String(c.p0)) || !/^\d+$/.test(String(c.entryStake))) return bad("round cfg");
     for (const k of ["T", "commitEnd", "revealEnd", "marketEnd", "candleSec", "settleDeadline"] as const) {

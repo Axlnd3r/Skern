@@ -14,6 +14,7 @@
 //  - No data from the feed means no post. The round then voids by itself (anyone can call `voidRound`
 //    after `settleDeadline`; that is not the keeper's job, the keeper only raises an alert).
 //  - Only bp moves relative to P0 are posted or logged. No price ever reaches a log line.
+import type { Candle } from "../../shared/score";
 import { Mutex } from "./lock";
 import { createLoopOps, type LoopOps, type RoundOnChain } from "./ops";
 import { KeeperError, type KeeperDeps, type RoundConfig } from "./rounds";
@@ -21,7 +22,7 @@ import {
   DataError,
   BAR_SEC,
   barsToCandles,
-  planRound,
+  planRoundWithHistory,
   sourceUrlFor,
   type PriceFeed,
   type RoundTemplate,
@@ -216,14 +217,16 @@ export async function startLoop(cfg: LoopConfig): Promise<LoopHandle> {
     if (!policy({ now, state })) return;
 
     let rc: RoundConfig;
+    let historyBp: Candle[];
     try {
-      rc = await planRound(cfg.template, cfg.feed, now);
+      ({ config: rc, historyBp } = await planRoundWithHistory(cfg.template, cfg.feed, now));
     } catch (e) {
       log(`not opening a round: ${errMsg(e)}`);
       return;
     }
     const fromBlock = (await ops.blockNumber()).toString();
-    const rec: StoredRound = { seq: (last?.seq ?? 0) + 1, cfg: serializeConfig(rc), fromBlock, stage: "planned" };
+    // The history of the bars used for this very config is stored with it (one provider call serves both).
+    const rec: StoredRound = { seq: (last?.seq ?? 0) + 1, cfg: serializeConfig(rc), fromBlock, stage: "planned", historyBp };
     state.rounds.push(rec);
     save(); // persisted BEFORE anything is sent
     log(`round #${rec.seq}: planned (commitEnd ${rc.commitEnd}, T ${rc.T} bp)`);

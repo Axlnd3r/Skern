@@ -4,6 +4,8 @@
 //
 //   POST /reveal   {"id": "12", "who": "0x..", "path": [{"close":..,"high":..,"low":..} x3], "salt": "0x..32 bytes"}
 //   GET  /health
+//   GET  /context/:id   the RoundContext (ticker, T, candleCount, recentCandlesBp) for house agents; see `contextOf`.
+//                       Memory only: no chain read, no provider call. 400 malformed id, 404 unknown round.
 //
 // Trade-off (accepted in D1): the keeper sees a human's path from the moment it is submitted, before the
 // reveal window. A request that arrives during the commit window is verified and QUEUED (202); the queue is
@@ -24,6 +26,7 @@ import { readFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { getAddress, isAddress, type Address, type Hex } from "viem";
+import type { RoundContext } from "../../agents/src/house/types";
 import { hashPath } from "../../agents/src/salt";
 import { isValid, type Candle, type Path } from "../../shared/score";
 import type { Mutex } from "./lock";
@@ -265,6 +268,15 @@ export interface RelayOptions {
   allowOrigins?: string[];
   /** Header carrying the client IP behind a trusted proxy (the LAST value is used). Default: the socket address. */
   clientIpHeader?: string;
+  /**
+   * Source of `GET /context/:id`: the round context for a round id, or undefined when the keeper has no such round
+   * (404). It must be cheap and synchronous (in-memory state, no chain or provider call). Without it the route
+   * does not exist (404 NOT_FOUND).
+   */
+  contextOf?: (id: bigint) => RoundContext | undefined;
+  /** Context requests per client IP: sustained per minute (default 60) and burst (default 10). Separate from the reveal limit. */
+  contextPerMin?: number;
+  contextBurst?: number;
   nowMs?: () => number;
   log?: (msg: string) => void;
 }
@@ -272,6 +284,8 @@ export interface RelayOptions {
 export interface RelayResponse {
   status: number;
   body: { ok: boolean; code: string; message: string; tx?: string };
+  /** Set by a successful `GET /context/:id`: the JSON sent on the wire INSTEAD of `body` (exactly a `RoundContext`). */
+  json?: RoundContext;
 }
 
 export interface RelayRequest {
@@ -329,7 +343,6 @@ export function createRelay(opts: RelayOptions): Relay {
   const keyOf = (id: bigint, who: Address): string => `${id}:${who.toLowerCase()}`;
 
   // -------- rate limiting (token buckets)
-  const buckets = new Map<string, Bucket>();
   const globalBucket: Bucket = { tokens: globalPerMin, at: nowMs() };
   const take = (b: Bucket, perMin: number, cap: number): boolean => {
     const now = nowMs();
@@ -339,19 +352,25 @@ export function createRelay(opts: RelayOptions): Relay {
     b.tokens -= 1;
     return true;
   };
-  const allow = (ip: string): boolean => {
-    if (buckets.size > 10_000) {
-      // bound memory: forget the idlest half (a forgotten client simply starts with a full burst again)
-      const old = [...buckets.entries()].sort((a, b) => a[1].at - b[1].at).slice(0, 5000);
-      for (const [k] of old) buckets.delete(k);
-    }
-    let b = buckets.get(ip);
-    if (!b) {
-      b = { tokens: burst, at: nowMs() };
-      buckets.set(ip, b);
-    }
-    return take(b, ratePerMin, burst);
+  /** A per-client token bucket limiter; the context endpoint has its own so polling agents never eat a reveal's budget. */
+  const perIpLimiter = (perMin: number, cap: number): ((ip: string) => boolean) => {
+    const map = new Map<string, Bucket>();
+    return (ip: string): boolean => {
+      if (map.size > 10_000) {
+        // bound memory: forget the idlest half (a forgotten client simply starts with a full burst again)
+        const old = [...map.entries()].sort((a, b) => a[1].at - b[1].at).slice(0, 5000);
+        for (const [k] of old) map.delete(k);
+      }
+      let b = map.get(ip);
+      if (!b) {
+        b = { tokens: cap, at: nowMs() };
+        map.set(ip, b);
+      }
+      return take(b, perMin, cap);
+    };
   };
+  const allow = perIpLimiter(ratePerMin, burst);
+  const allowContext = perIpLimiter(opts.contextPerMin ?? 60, opts.contextBurst ?? 10);
   // The global bucket is charged only for a request that passed strict parsing and `isValid`, so junk from a few
   // clients cannot use up the budget of real reveals (the per-client bucket above already limits junk).
   const allowGlobal = (): boolean => take(globalBucket, globalPerMin, globalPerMin);
@@ -576,11 +595,28 @@ export function createRelay(opts: RelayOptions): Relay {
     return flushing;
   };
 
+  // -------- context (read only, memory only)
+  function context(req: RelayRequest): RelayResponse {
+    if (req.method !== "GET") return res(405, false, "METHOD_NOT_ALLOWED", "use GET");
+    if (!allowContext(req.ip)) return res(429, false, "RATE_LIMITED", "too many requests");
+    const raw = req.path.slice("/context/".length);
+    if (!/^[1-9][0-9]{0,18}$/.test(raw)) return res(400, false, "BAD_REQUEST", "id must be a positive decimal integer");
+    let ctx: RoundContext | undefined;
+    try {
+      ctx = (opts.contextOf as (id: bigint) => RoundContext | undefined)(BigInt(raw));
+    } catch {
+      return res(500, false, "INTERNAL", "internal error");
+    }
+    if (!ctx) return res(404, false, "UNKNOWN_ROUND", "no such round");
+    return { status: 200, body: { ok: true, code: "OK", message: "ok" }, json: ctx };
+  }
+
   // -------- request routing (no sockets)
   async function handle(req: RelayRequest): Promise<RelayResponse> {
     if (req.path === "/health") {
       return req.method === "GET" ? res(200, true, "OK", "ok") : res(405, false, "METHOD_NOT_ALLOWED", "use GET");
     }
+    if (opts.contextOf && req.path.startsWith("/context/")) return context(req);
     if (req.path !== "/reveal") return res(404, false, "NOT_FOUND", "unknown path");
     if (req.method !== "POST") return res(405, false, "METHOD_NOT_ALLOWED", "use POST");
     if (!allow(req.ip)) return res(429, false, "RATE_LIMITED", "too many requests"); // per client; the global bucket is charged in `reveal`
@@ -617,17 +653,18 @@ export function createRelay(opts: RelayOptions): Relay {
     }
     if (r.status === 429) headers["retry-after"] = "10";
     rs.writeHead(r.status, headers);
-    rs.end(JSON.stringify(r.body));
+    rs.end(JSON.stringify(r.json ?? r.body));
   };
 
   const onRequest = (rq: IncomingMessage, rs: ServerResponse): void => {
     const path = (rq.url ?? "").split("?")[0] ?? "";
-    if (rq.method === "OPTIONS" && path === "/reveal") {
+    const isContextPath = opts.contextOf !== undefined && path.startsWith("/context/");
+    if (rq.method === "OPTIONS" && (path === "/reveal" || isContextPath)) {
       const origin = rq.headers.origin;
       const headers: Record<string, string> = { "content-length": "0" };
       if (origin && allowOrigins.has(origin)) {
         headers["access-control-allow-origin"] = origin;
-        headers["access-control-allow-methods"] = "POST, OPTIONS";
+        headers["access-control-allow-methods"] = isContextPath ? "GET, OPTIONS" : "POST, OPTIONS";
         headers["access-control-allow-headers"] = "content-type";
         headers["access-control-max-age"] = "600";
         headers.vary = "Origin";
