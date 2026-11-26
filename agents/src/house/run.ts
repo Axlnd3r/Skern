@@ -218,14 +218,18 @@ interface RoundInfo {
 interface PlayState {
   attempts: number;
   path?: Path;
-  /** The last transient failure and how many times in a row it was identical. */
+  /** The last SIMULATION failure and how many times in a row it was identical. */
   lastFailure?: string;
   repeats: number;
 }
 
 /** Errors worth another try while the commit window is open. Everything else (invalid path, closed window, reverts) is final. */
 const TRANSIENT = new Set(["RPC", "SEND_UNCERTAIN", "PENDING_TX", "SIMULATION"]);
-/** An identical transient failure this many times in a row is treated as final (a dry run that keeps failing the same way will not heal). */
+/**
+ * The same SIMULATION failure this many times in a row is treated as final: a dry run is deterministic, so it will not
+ * heal. Transient infrastructure errors (RPC, PENDING_TX, SEND_UNCERTAIN, e.g. repeated 429s from a public RPC) are NOT
+ * capped this way; they retry until the attempt bound (`maxAttempts`) or the end of the commit window.
+ */
 const MAX_IDENTICAL_FAILURES = 3;
 
 /** The response body as text, read as a stream and cut off at `limit` bytes (not characters). */
@@ -414,10 +418,13 @@ export function createRunner(opts: RunnerOptions): HouseRunner {
       const code = e instanceof AgentError ? e.code : "ERROR";
       const why = e instanceof AgentError ? `${code}: ${e.message}` : shortMessage(e);
       let retry = e instanceof AgentError ? TRANSIENT.has(code) : true;
-      if (retry) {
+      if (retry && code === "SIMULATION") {
         st.repeats = why === st.lastFailure ? st.repeats + 1 : 1;
         st.lastFailure = why;
         if (st.repeats >= MAX_IDENTICAL_FAILURES) retry = false; // the same failure again and again will not heal
+      } else {
+        st.repeats = 0; // any other failure breaks a SIMULATION streak
+        st.lastFailure = undefined;
       }
       if (code === "ALREADY_COMMITTED" || code === "COMMIT_CLOSED" || !retry) finished.add(key);
       log(`round ${round.id} ${player.name}: commit failed (${why})${retry ? "; will retry while the commit window is open" : "; not retrying"}`);

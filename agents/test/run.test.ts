@@ -652,7 +652,7 @@ describe("house runner: failure handling", () => {
     expect((await entryOf(id, houseAddr("momentum"))).kind).toBe(0);
   }, 60_000);
 
-  it("the same transient failure three times in a row is final", async () => {
+  it("the same SIMULATION failure three times in a row is final", async () => {
     await newRound();
     const logs: string[] = [];
     const built = await build(freshDir(), makeClock().clock, { logs });
@@ -674,6 +674,32 @@ describe("house runner: failure handling", () => {
     expect(calls).toBe(3);
     expect(logs.filter((m) => m.includes("will retry"))).toHaveLength(2);
     expect(logs.filter((m) => m.includes("not retrying"))).toHaveLength(1);
+  }, 60_000);
+
+  it("three identical RPC failures in a row do not end the retries: the commit is sent once the RPC heals", async () => {
+    const id = await newRound();
+    const logs: string[] = [];
+    const built = await build(freshDir(), makeClock().clock, { logs });
+    let calls = 0;
+    const players: Player[] = built.players
+      .filter((p) => p.name === "momentum")
+      .map((p) => ({
+        ...p,
+        agent: {
+          ...p.agent,
+          submitPath: async (rid: bigint, path: Path) => {
+            calls++;
+            if (calls <= 3) throw new AgentError("RPC", "HTTP 429 too many requests");
+            return p.agent.submitPath(rid, path);
+          },
+        },
+      }));
+    const runner = createRunner({ players, publicClient, arenaAddress: arena, keeperUrl, pollMs: 50, log: (m) => logs.push(m) });
+    for (let i = 0; i < 6; i++) await runner.tick();
+    expect(calls).toBe(4);
+    expect(logs.filter((m) => m.includes("not retrying"))).toHaveLength(0);
+    expect(logs.filter((m) => m.includes("will retry while"))).toHaveLength(3);
+    expect((await entryOf(id, houseAddr("momentum"))).kind).not.toBe(0);
   }, 60_000);
 
   it("after a restart with a pending salt record whose commit never landed, the stored path is committed (not a new prediction)", async () => {

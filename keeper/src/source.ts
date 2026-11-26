@@ -184,6 +184,7 @@ export function historyCandles(bars: readonly Bar[], intervalSec: number, fromTs
   const perInterval = Math.floor(intervalSec / BAR_SEC);
   const byBucket = new Map<number, Map<number, Bar>>();
   for (const b of bars) {
+    if (b.t % BAR_SEC !== 0) continue; // an off-grid bar must not fill the slot of a missing on-grid minute
     const start = Math.floor(b.t / intervalSec) * intervalSec;
     if (start < fromTs || start + intervalSec > now) continue; // cut off at the start, or still running
     let m = byBucket.get(start);

@@ -190,6 +190,16 @@ describe("historyCandles (hand-computed)", () => {
     ]);
   });
 
+  it("an off-grid bar cannot fill the slot of a missing on-grid minute", () => {
+    const bar = (t: number, close: number): Bar => ({ t, open: close, high: close, low: close, close });
+    // interval 240..360 needs the minutes t=240 and t=300; t=310 is off the minute grid and must not count
+    const offGrid = [bar(240, 100), bar(310, 101)];
+    expect(historyCandles(offGrid, 120, 240, 360, 100_000_000n)).toEqual([]);
+    // the same interval with the real t=300 bar is complete
+    const onGrid = [bar(240, 100), bar(300, 101)];
+    expect(historyCandles(onGrid, 120, 240, 360, 100_000_000n)).toEqual([{ close: 100, high: 100, low: 0 }]);
+  });
+
   it("keeps only the newest MAX_HISTORY_CANDLES intervals", () => {
     const bars: Bar[] = [];
     for (let i = 0; i < MAX_HISTORY_CANDLES + 10; i++) bars.push({ t: i * 60, open: 100 + i, high: 100 + i, low: 100 + i, close: 100 + i });
