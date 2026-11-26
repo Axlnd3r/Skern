@@ -510,3 +510,9 @@ MCP tools: `list_rounds`, `get_round`, `get_consensus`, `submit_path`, `get_my_r
 
 - Spec coverage: README §3 (Tasks 4-7, 10), §4 (2), §5 (7), §6 (2-8), §7 (11), §8 (3, 12), §9 (0, 9), §10 (13-17), §11 (Global Constraints), §12 (dependency order), §16 (18). Orchestrator ask covered by Orchestration and Task 1.
 - Type names (`Candle`, `RoundParams`, `Kind`, `Side`) are used identically across tasks.
+- **From Task 14b review (2 rounds, APPROVE; commit `db241b2`):** round 1 REJECT (salt of a commit could be overwritten by a second attempt), fixed with per-hash salt records, separate in-flight slots, production keeper URL rule and replaced-tx detection. Open minors:
+  - **Before the demo round (stake-burn risk):** `EntryPanel.tsx:60,133` with `useActions.ts:182-191`: the relay is blocked while the entry tx state is `pending`, even if the chain entry hash already equals a saved record. After a wallet speed-up plus reload, `waitForTransactionReceipt` waits 180 s on the old hash and the 30 s demo reveal window closes. Fix: when the chain entry hash matches a saved record, do not let the tx state block the relay (`AlreadyRevealed` counts as success). Add an EntryPanel wiring test (tx pending, chain hash matches, relay fires).
+  - `app/.env.example:25`: `NEXT_PUBLIC_KEEPER_URL=http://127.0.0.1:8787` is not commented out; copying it to `.env.production` brings localhost back. Comment it out or leave it empty.
+  - `marketTx.ts:79-80`: the "replaced" message is misleading for a speed-up that landed (cosmetic).
+  - Two tabs share one in-flight key; one tab's release clears the other's record (the salt-store check still blocks a double commit).
+  - Round 1 minors not fixed: the gate address comes from `addresses.json` `AllowlistGate`, not `Registry.gate()` (wrong allowlist status after `setGate`); auto-relay after an expired in-flight record depends on EntryPanel's single auto-send per mount.
