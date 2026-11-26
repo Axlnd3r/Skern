@@ -67,3 +67,65 @@ describe("DrawChart commit button", () => {
     expect(container.querySelector('[data-field="c1-close"]')?.textContent).toBe(before);
   });
 });
+
+describe("DrawChart drawing", () => {
+  it("keeps one focusable slider per handle, 9 in all, with their names", () => {
+    render();
+    const sliders = [...container.querySelectorAll('[role="slider"]')];
+    expect(sliders).toHaveLength(9);
+    expect(sliders.map((e) => e.getAttribute("aria-label")).slice(0, 3)).toEqual(["Candle 1 high", "Candle 1 close", "Candle 1 low"]);
+    for (const e of sliders) expect(e.getAttribute("tabindex")).toBe("0");
+  });
+
+  it("marks the three handle kinds with different shapes: circle, up triangle, down triangle", () => {
+    render();
+    const marks = [...container.querySelectorAll(".mark")].slice(0, 3);
+    expect(marks.map((m) => m.tagName.toLowerCase())).toEqual(["polygon", "circle", "polygon"]); // drawn in the order high, close, low
+    const apex = (m: Element) => {
+      const pts = (m.getAttribute("points") ?? "").split(" ").map((p) => p.split(",").map(Number) as [number, number]);
+      const cy = Number(container.querySelector('[data-handle="1"]')?.getAttribute("cy"));
+      return (pts[0] as [number, number])[1] < cy; // first point is the tip
+    };
+    expect(apex(marks[0] as Element)).toBe(true); // high points up
+    expect(apex(marks[2] as Element)).toBe(false); // low points down
+    // the visible marks take no pointer events: the invisible handle circles stay the drag targets
+    for (const m of container.querySelectorAll(".mark")) expect(m.getAttribute("data-handle")).toBeNull();
+  });
+
+  it("labels candle 1's handles with hidden hand-written notes, tracking the handle", () => {
+    render();
+    const labels = container.querySelector(".annotations") as SVGElement;
+    expect(labels.getAttribute("aria-hidden")).toBe("true");
+    expect([...labels.querySelectorAll("text")].map((t) => t.textContent)).toEqual(["high", "close", "low"]);
+    const before = labels.querySelector('[data-label="close"] text')?.getAttribute("y");
+    act(() => {
+      (container.querySelector('[data-handle="0"]') as SVGElement).dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowUp", shiftKey: true, bubbles: true }),
+      );
+    });
+    expect(labels.querySelector('[data-label="close"] text')?.getAttribute("y")).not.toBe(before);
+  });
+
+  it("fills the candle bodies from a hatch pattern defined in the same svg, opposite angles for up and down", () => {
+    render();
+    const patterns = [...container.querySelectorAll("defs pattern")];
+    expect(patterns).toHaveLength(2);
+    expect(patterns.map((p) => p.getAttribute("patternTransform"))).toEqual(["rotate(45)", "rotate(-45)"]);
+    const ids = patterns.map((p) => p.getAttribute("id"));
+    const fill = container.querySelector(".body")?.getAttribute("fill");
+    expect(fill).toBe(`url(#${ids[0]})`); // the flat default candle counts as up
+    // an up and a down candle never share a fill
+    act(() => {
+      (container.querySelector('[data-handle="0"]') as SVGElement).dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", shiftKey: true, bubbles: true }));
+    });
+    expect(container.querySelector(".body")?.getAttribute("fill")).toBe(`url(#${ids[1]})`);
+  });
+
+  it("the axis text says P0 only; the long wording is in the note below", () => {
+    render();
+    const axis = [...container.querySelectorAll("text.axis")].map((t) => t.textContent);
+    expect(axis).toContain("P0 (0 bp)");
+    expect(axis.join(" ")).not.toMatch(/flat baseline/);
+    expect(container.querySelector(".hint")?.textContent).toMatch(/flat baseline/);
+  });
+});

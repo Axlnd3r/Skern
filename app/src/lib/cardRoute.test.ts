@@ -14,6 +14,18 @@ describe("GET /api/card", () => {
     expect(bytes.length).toBeGreaterThan(1000);
   });
 
+  it("is a 1200x630 PNG, also with the longest allowed ticker and round, a tie and a zero score", async () => {
+    const dims = async (q: string) => {
+      const res = await call(q);
+      expect(res.status).toBe(200);
+      const b = new DataView((await res.arrayBuffer()).slice(0, 24));
+      return [b.getUint32(16), b.getUint32(20)];
+    };
+    expect(await dims("?me=87&agent=90&base=60&round=12&t=AAPL")).toEqual([1200, 630]);
+    expect(await dims("?me=100&agent=100&base=100&round=999999999&t=WWWWW")).toEqual([1200, 630]);
+    expect(await dims("?me=0&agent=0&base=0&round=0")).toEqual([1200, 630]);
+  });
+
   it("renders a win and a level card too", async () => {
     expect((await call("?me=95&agent=90")).status).toBe(200);
     expect((await call("?me=90&agent=90")).status).toBe(200);

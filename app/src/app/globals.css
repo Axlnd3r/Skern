@@ -170,19 +170,32 @@ h2 { font-size: 1.2rem; line-height: 1.2; margin: 0 0 10px; text-transform: uppe
   touch-action: none;
   user-select: none;
 }
-.chart .baseline { stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 6 5; }
-/* 13 SVG units: "P0 (0 bp), flat baseline" (about 10.5em, starts at x=20) ends near x=157, left of candle 1's
-   high handle (x 174..190) at the default flat path. A larger size runs the label under that handle. */
-.chart .axis { fill: var(--muted); font-family: var(--f-body); font-size: 13px; }
-.chart .wick { stroke: var(--ink); stroke-width: 2; stroke-linecap: round; }
+.chart .baseline { stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 6 5; stroke-linecap: round; }
+/* 17 SVG units is 10px on a 360px phone (the chart scales to about 0.6). Axis text sits in the left margin and above
+   the baseline; globals.contrast.test.ts checks it stays clear of candle 1's handles (positions come from DrawChart). */
+.chart .axis { fill: var(--muted); font-family: var(--f-body); font-size: 17px; }
+.chart .wick { stroke: var(--ink); stroke-width: 1.5; stroke-linecap: round; }
 .chart .body { stroke: var(--ink); stroke-width: 2; stroke-linejoin: round; }
-.chart .body.up { fill: var(--green-tint); }
-.chart .body.down { fill: var(--red-tint); }
-.chart .handle { stroke: var(--ink); stroke-width: 2; cursor: ns-resize; touch-action: none; }
-.chart .handle.h-close { fill: var(--ink); }
-.chart .handle.h-high { fill: var(--card); }
-.chart .handle.h-low { fill: var(--tie); }
-.chart .handle:focus-visible, .chart .handle.active { stroke: var(--blue); stroke-width: 4; }
+/* Candle bodies are filled by a hatch pattern (components/ChartHatch.tsx): up = slash hatch in green, down = backslash hatch in red. */
+.hatch-paper { fill: var(--card); }
+.hatch line { stroke-width: 1.6; stroke-linecap: round; }
+.hatch-up line { stroke: var(--green); }
+.hatch-down line { stroke: var(--red); }
+/* Consensus series: a card-colored body outlined in the side color (set per series from a token). */
+.chart .series-body { fill: var(--card); stroke-width: 2.5; stroke-linejoin: round; }
+.chart .series-wick { stroke-width: 2.5; stroke-linecap: round; }
+.swatch-hatch { display: inline-block; vertical-align: -2px; margin-right: 3px; }
+.swatch-hatch rect { stroke: var(--ink); stroke-width: 1.5; }
+/* The visible handle marks: circle = close, up triangle = high, down triangle = low. They take no pointer events. */
+.chart .mark { stroke: var(--ink); stroke-width: 2; stroke-linejoin: round; pointer-events: none; }
+.chart .mark.h-close { fill: var(--ink); }
+.chart .mark.h-high, .chart .mark.h-low { fill: var(--card); }
+/* The handle itself is an invisible, draggable, focusable circle on top of its mark; it draws only the focus/drag ring. */
+.chart .handle { fill: transparent; stroke: none; cursor: ns-resize; touch-action: none; }
+.chart .handle:focus-visible, .chart .handle.active { stroke: var(--blue); stroke-width: 3; }
+/* Short hand-written notes inside a chart (decorative, aria-hidden): the hand face, a few words only. */
+.chart .chart-note { fill: var(--ink); font-family: var(--f-hand); font-size: 20px; pointer-events: none; }
+.chart .leader { stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 3 3; stroke-linecap: round; pointer-events: none; }
 
 .values { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; margin-top: 8px; }
 .values th, .values td { text-align: right; padding: 3px 8px; font-size: 0.88rem; }
@@ -241,6 +254,8 @@ h2 { font-size: 1.2rem; line-height: 1.2; margin: 0 0 10px; text-transform: uppe
   --c-human: var(--blue);
   --c-agent: var(--ochre);
   --c-tie: var(--tie);
+  /* raw ochre is a highlighter fill (2.4:1 on the card): chart lines in the agent color use the ink variant */
+  --c-agent-ink: var(--ochre-ink);
 }
 .page.wide { max-width: 960px; }
 .tag.sim { background: transparent; color: var(--ink); border: 1.5px dashed var(--ink); margin-left: 8px; }
@@ -253,7 +268,7 @@ h2 { font-size: 1.2rem; line-height: 1.2; margin: 0 0 10px; text-transform: uppe
 .trend { width: 100%; height: auto; background: var(--card); border: 2px solid var(--ink); border-radius: var(--r-card); box-shadow: var(--shadow); }
 .trend .trend-grid { stroke: var(--muted); stroke-opacity: 0.45; stroke-dasharray: 2 4; }
 .trend .trend-zero { stroke: var(--ink); stroke-width: 1.5; stroke-dasharray: 6 5; }
-.trend .trend-axis { fill: var(--muted); font-family: var(--f-body); font-size: 12px; }
+.trend .trend-axis { fill: var(--muted); font-family: var(--f-body); font-size: 18px; }
 .trend .trend-line { stroke: var(--ink); stroke-width: 1.5; stroke-linejoin: round; }
 .mk-human { fill: var(--c-human); stroke: var(--ink); stroke-width: 1.5; }
 .mk-agent { fill: var(--c-agent); stroke: var(--ink); stroke-width: 1.5; }

@@ -1,6 +1,7 @@
 import { gapOf, outcomeOf, trendPoints, type RoundSummary, type TrendBox } from "@/lib/history";
 
-const BOX: TrendBox = { width: 560, height: 260, padLeft: 64, padRight: 16, padTop: 16, padBottom: 44 };
+// Tall enough that the rotated axis title (29 characters at 18 units) fits beside the plot.
+const BOX: TrendBox = { width: 560, height: 360, padLeft: 84, padRight: 16, padTop: 16, padBottom: 60 };
 
 function signed(n: number): string {
   return n > 0 ? `+${n}` : String(n);
@@ -23,7 +24,7 @@ export function TrendChart({ rounds }: { rounds: readonly RoundSummary[] }) {
   const right = BOX.width - BOX.padRight;
   const title = "Human minus Agent consensus score per round, in points";
   const desc = decided.map((r) => `round ${r.id}: ${signed(gapOf(r) as number)}`).join(", ");
-  const showEvery = decided.length > 12 ? Math.ceil(decided.length / 12) : 1;
+  const showEvery = decided.length > 8 ? Math.ceil(decided.length / 8) : 1;
 
   return (
     <figure className="trend-fig">
@@ -64,7 +65,7 @@ export function TrendChart({ rounds }: { rounds: readonly RoundSummary[] }) {
                 <rect className="mk-tie" x={p.x - 5} y={p.y - 5} width={10} height={10} transform={`rotate(45 ${p.x} ${p.y})`} />
               )}
               {i % showEvery === 0 || i === points.length - 1 ? (
-                <text className="trend-axis" x={p.x} y={bottom + 16} textAnchor="middle">
+                <text className="trend-axis" x={p.x} y={bottom + 24} textAnchor="middle">
                   #{String(r.id)}
                 </text>
               ) : null}
@@ -74,7 +75,7 @@ export function TrendChart({ rounds }: { rounds: readonly RoundSummary[] }) {
         <text className="trend-axis" x={(BOX.padLeft + right) / 2} y={BOX.height - 6} textAnchor="middle">
           Round (oldest to newest)
         </text>
-        <text className="trend-axis" x={12} y={(top + bottom) / 2} textAnchor="middle" transform={`rotate(-90 12 ${(top + bottom) / 2})`}>
+        <text className="trend-axis" x={18} y={(top + bottom) / 2} textAnchor="middle" transform={`rotate(-90 18 ${(top + bottom) / 2})`}>
           Human score minus Agent score
         </text>
       </svg>

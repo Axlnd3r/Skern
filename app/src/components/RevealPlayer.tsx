@@ -13,7 +13,7 @@ import {
   scoresAgree,
   type ConsensusScores,
 } from "@/lib/reveal";
-import { PathChart, type ChartSeries } from "./PathChart";
+import { PathChart, SERIES_COLOR, type ChartSeries } from "./PathChart";
 
 export type RevealPlayerProps = {
   /** The three real candles posted by the keeper (valid, int32 bp relative to P0). */
@@ -33,10 +33,6 @@ export type RevealPlayerProps = {
   /** Advance one candle every STEP_MS (default true). */
   autoPlay?: boolean;
 };
-
-const HUMAN_COLOR = "#3b82f6";
-const AGENT_COLOR = "#a78bfa";
-const REAL_COLOR = "#22c55e";
 
 function shortHash(h: string): string {
   return `${h.slice(0, 10)}...${h.slice(-6)}`;
@@ -63,9 +59,9 @@ export function RevealPlayer(props: RevealPlayerProps) {
   // The axis is fitted to the consensus paths and the candles revealed so far, never to hidden candles.
   const bound = fitBound([...(human ? [human] : []), ...(agent ? [agent] : []), frame.real], T);
   const series: ChartSeries[] = [
-    ...(human ? [{ id: "human", label: "Human consensus", color: HUMAN_COLOR, filled: false, offset: -30, candles: human }] : []),
-    { id: "real", label: "Real candles", color: REAL_COLOR, filled: true, offset: 0, candles: frame.real },
-    ...(agent ? [{ id: "agent", label: "Agent consensus", color: AGENT_COLOR, filled: false, offset: 30, candles: agent }] : []),
+    ...(human ? [{ id: "human", label: "Human consensus", color: SERIES_COLOR.human, filled: false, offset: -30, candles: human }] : []),
+    { id: "real", label: "Real candles", color: SERIES_COLOR.real, filled: true, offset: 0, candles: frame.real },
+    ...(agent ? [{ id: "agent", label: "Agent consensus", color: SERIES_COLOR.agent, filled: false, offset: 30, candles: agent }] : []),
   ];
 
   const agrees = frame.done && onchain ? scoresAgree(frame, onchain) : null;

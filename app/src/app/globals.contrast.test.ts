@@ -1,5 +1,9 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { CARD_TOKENS } from "./api/card/theme";
+import { DX, HANDLE_R, LEFT_X, P0_LABEL, SLOT_X } from "../components/DrawChart";
+import { handleLabel } from "../lib/chartLabels";
 
 // Reads the real stylesheet: if a token or a button color is changed to something too faint, this fails.
 //
@@ -26,6 +30,11 @@ function parseRules(source: string): Rule[] {
 }
 
 const rules = parseRules(css);
+
+// What counts as a color literal in a component: a quoted (or `prop: `) #rgb, #rgba, #rrggbb, #rrggbbaa, or a color
+// function. Plain text such as "Round #123" or `url(#id)` is not a color.
+const HEX_LITERAL = /(?:[\"'`]|:\s*)#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})\b/;
+const COLOR_FN = /\b(?:rgba?|hsla?|oklch|oklab|hwb|lab|lch|color)\(/;
 
 /** Declarations that apply to `selectors` merged in source order (later wins; specificity is not modeled). */
 function effective(...selectors: string[]): Map<string, string> {
@@ -312,16 +321,108 @@ describe("palette contrast (WCAG 2.x)", () => {
     expect(Number(rem?.[1])).toBeGreaterThanOrEqual(0.9);
   });
 
-  it("the chart axis labels stay clear of candle 1's high handle at the default flat path", () => {
-    // DrawChart geometry: the P0 label starts at x=20 and candle 1's high handle spans x 174..190.
-    // "P0 (0 bp), flat baseline" is about 10.5em wide, so its right edge must stay left of 174 with a margin.
-    const px = /^(\d+(?:\.\d+)?)px$/.exec(effective(".chart .axis").get("font-size") ?? "");
-    expect(px, ".chart .axis font-size in px").not.toBeNull();
-    const end = 20 + 10.5 * Number(px?.[1]);
-    expect(end, "P0 label right edge in SVG units").toBeLessThanOrEqual(174 - 12);
+  it("every stroke token used by a chart mark is distinguishable (3:1) on the card", () => {
+    // Strokes in the stylesheet that name a token: lines, outlines, hatch strokes and leader lines.
+    const seen = new Set<string>();
+    for (const r of rules) {
+      const stroke = r.decls.get("stroke");
+      if (stroke === undefined || /^(none|transparent|currentColor)$/i.test(stroke)) continue;
+      const hex = resolve(stroke);
+      expect(hex, `${r.selectors.join(", ")} stroke ${stroke} resolves to a token`).toBeDefined();
+      check(`${r.selectors.join(", ")} stroke`, hex as string, card, 3);
+      seen.add(r.selectors.join(", "));
+    }
+    for (const sel of [".hatch-up line", ".hatch-down line", ".chart .leader", ".chart .mark", ".chart .baseline"]) {
+      expect(seen.has(sel), `${sel} has a checked stroke`).toBe(true);
+    }
+    // Series lines take their color from tokens in PathChart: human blue and agent ochre ink.
+    check("--c-human line", resolve("var(--c-human)") as string, card, 3);
+    check("--c-agent-ink line", resolve("var(--c-agent-ink)") as string, card, 3);
+    // The hatch strokes lie on card-colored paper.
+    expect(resolve(effective(".hatch-paper").get("fill"))).toBe(card);
   });
 
-  it("the harness itself: a faint color is rejected", () => {
+  it("candle hatching uses opposite directions for up and down (not color alone)", () => {
+    const src = readFileSync(join(__dirname, "..", "components", "ChartHatch.tsx"), "utf8");
+    expect(src).toMatch(/hatch-up[^>]*rotate\(45\)/);
+    expect(src).toMatch(/hatch-down[^>]*rotate\(-45\)/);
+  });
+
+  it("the chart axis labels stay clear of candle 1's high handle at the default flat path", () => {
+    // Geometry comes from DrawChart itself: the P0 label starts at LEFT_X, candle 1's high handle's left edge is
+    // SLOT_X[0] + DX.high - HANDLE_R. Widths are estimated per character: 0.6em for the body face, 0.45em for the narrow hand face.
+    const px = /^(\d+(?:\.\d+)?)px$/.exec(effective(".chart .axis").get("font-size") ?? "");
+    expect(px, ".chart .axis font-size in px").not.toBeNull();
+    const size = Number(px?.[1]);
+    const end = LEFT_X + P0_LABEL.length * 0.6 * size;
+    const handleLeft = (SLOT_X[0] as number) + DX.high - HANDLE_R;
+    expect(end, "P0 label right edge in SVG units").toBeLessThanOrEqual(handleLeft - 12);
+    // It must also stay left of the hand-written "high" label of candle 1 (its text runs left from its anchor).
+    const high = handleLabel("high", (SLOT_X[0] as number) + DX.high, 160, HANDLE_R, 320);
+    const noteSize = Number(/^(\d+(?:\.\d+)?)px$/.exec(effective(".chart .chart-note").get("font-size") ?? "")?.[1]);
+    expect(noteSize).toBeGreaterThan(0);
+    expect(high.tx - "high".length * 0.45 * noteSize, "high note left edge").toBeGreaterThan(end);
+  });
+
+  it("chart text is at least 10px on a 360px phone", () => {
+    // The chart svg is 520 units wide and about 308px wide on a 360px phone (page and card padding, borders).
+    const scale = 308 / 520;
+    for (const sel of [".chart .axis", ".chart .chart-note", ".trend .trend-axis"]) {
+      const px = Number(/^(\d+(?:\.\d+)?)px$/.exec(effective(sel).get("font-size") ?? "")?.[1]);
+      // the trend chart is 560 wide
+      const s = sel.startsWith(".trend") ? 308 / 560 : scale;
+      expect(px * s, `${sel} effective px`).toBeGreaterThanOrEqual(9.9);
+    }
+  });
+
+  it("the hand face in charts is limited to the short handle notes", () => {
+    expect(effective(".chart .chart-note").get("font-family")).toBe("var(--f-hand)");
+    for (const sel of [".chart .axis", ".trend .trend-axis"]) expect(effective(sel).get("font-family")).toBe("var(--f-body)");
+    const users: string[] = [];
+    const walk = (dir: string) => {
+      for (const name of readdirSync(dir)) {
+        const full = join(dir, name);
+        if (statSync(full).isDirectory()) walk(full);
+        else if (/\.tsx$/.test(name) && !/\.test\.tsx$/.test(name) && readFileSync(full, "utf8").includes("chart-note")) users.push(name);
+      }
+    };
+    walk(join(__dirname, ".."));
+    expect(users).toEqual(["DrawChart.tsx"]);
+  });
+
+  it("no TSX component writes a color literal: colors come from the stylesheet tokens", () => {
+    const offenders: string[] = [];
+    const walk = (dir: string) => {
+      for (const name of readdirSync(dir)) {
+        const full = join(dir, name);
+        if (statSync(full).isDirectory()) walk(full);
+        else if (/\.tsx$/.test(name) && !/\.test\.tsx$/.test(name)) {
+          readFileSync(full, "utf8").split(/\r?\n/).forEach((line, i) => {
+            if (HEX_LITERAL.test(line) || COLOR_FN.test(line)) offenders.push(`${name}:${i + 1}: ${line.trim()}`);
+          });
+        }
+      }
+    };
+    walk(join(__dirname, ".."));
+    expect(offenders).toEqual([]);
+  });
+
+  it("the share card colors equal the stylesheet tokens they copy", () => {
+    for (const [name, hex] of Object.entries(CARD_TOKENS)) expect(hex, name).toBe(token(name));
+    // The card is light paper: its text pairs hold the same ratios as on the site.
+    check("card ink on card", CARD_TOKENS["--ink"], CARD_TOKENS["--card"], 7);
+    check("card muted on card", CARD_TOKENS["--muted"], CARD_TOKENS["--card"], 4.5);
+    check("card ink on footer highlight", CARD_TOKENS["--ink"], CARD_TOKENS["--hilite"], 7);
+    for (const name of ["--green", "--blue", "--ochre-ink"] as const) check(`card ${name} text on card`, CARD_TOKENS[name], CARD_TOKENS["--card"], 4.5);
+  });
+
+  it("the harness itself: a faint color is rejected, a color literal is caught", () => {
+    for (const bad of ['const c = "#3b82f6";', "fill: '#fff'", 'stroke="#a78bfa80"', "color: rgb(1, 2, 3)"]) {
+      expect(HEX_LITERAL.test(bad) || COLOR_FN.test(bad), bad).toBe(true);
+    }
+    for (const ok of ['fill="url(#hatch-up-r1)"', "Round #123", 'style={{ stroke: "var(--c-human)" }}']) {
+      expect(HEX_LITERAL.test(ok) || COLOR_FN.test(ok), ok).toBe(false);
+    }
     expect(ratio("#c9c3b4", "#f6f1e4")).toBeLessThan(4.5);
     expect(ratio("#161513", "#ffffff")).toBeGreaterThan(15);
     expect(ratio("#000000", "#ffffff")).toBeCloseTo(21, 5);

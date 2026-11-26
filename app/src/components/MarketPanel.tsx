@@ -19,10 +19,8 @@ import { fitBound } from "@/lib/reveal";
 import type { Phase } from "@/lib/round";
 import { isBusy, type TxState } from "@/lib/marketTx";
 import { useMarketActions, useMarketReads } from "@/lib/useMarket";
-import { PathChart, type ChartSeries } from "./PathChart";
+import { PathChart, SERIES_COLOR, type ChartSeries } from "./PathChart";
 
-const HUMAN_COLOR = "#3b82f6";
-const AGENT_COLOR = "#a78bfa";
 const pct = (x: number) => Math.round(x * 100);
 
 export type MarketPanelViewProps = {
@@ -85,8 +83,8 @@ export function MarketPanelView(props: MarketPanelViewProps) {
   const humanPath = data.consensus.human.ready ? data.consensus.human.path : null;
   const agentPath = data.consensus.agent.ready ? data.consensus.agent.path : null;
   const series: ChartSeries[] = [
-    ...(humanPath ? [{ id: "human", label: "Human consensus", color: HUMAN_COLOR, filled: false, offset: -16, candles: humanPath }] : []),
-    ...(agentPath ? [{ id: "agent", label: "Agent consensus", color: AGENT_COLOR, filled: false, offset: 16, candles: agentPath }] : []),
+    ...(humanPath ? [{ id: "human", label: "Human consensus", color: SERIES_COLOR.human, filled: false, offset: -16, candles: humanPath }] : []),
+    ...(agentPath ? [{ id: "agent", label: "Agent consensus", color: SERIES_COLOR.agent, filled: false, offset: 16, candles: agentPath }] : []),
   ];
   const final = view.state === "cancelled" || view.state === "tie" || view.state === "resolved";
   const payout = guard.ok ? projectedPayout(guard.amount, data.pools[side], total) : null;
