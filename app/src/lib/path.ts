@@ -137,6 +137,8 @@ export type CommitGuardInput = {
   /** True for the practice round shown when no live round is readable. Never committable. */
   simulated: boolean;
   connected: boolean;
+  /** A reason from outside the drawing rules (not registered, not enough points, ...). It blocks the commit. */
+  blocked?: string;
 };
 
 export type CommitGuard = { ok: true } | { ok: false; reason: string };
@@ -148,6 +150,7 @@ export function commitGuard(i: CommitGuardInput): CommitGuard {
   if (i.phase !== "commit") return { ok: false, reason: "The commit window is not open." };
   if (i.closing) return { ok: false, reason: "The commit window is closing. A transaction would land too late." };
   if (!i.connected) return { ok: false, reason: "Connect your wallet to commit." };
+  if (i.blocked !== undefined) return { ok: false, reason: i.blocked };
   return { ok: true };
 }
 

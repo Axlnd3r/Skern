@@ -1,10 +1,11 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAccount, useReadContracts } from "wagmi";
 import { getAccount, getBlock, readContracts, simulateContract, waitForTransactionReceipt, writeContract } from "wagmi/actions";
 import { zeroAddress, type Address } from "viem";
 import { addresses, arenaAbi, BASE_SEPOLIA_CHAIN_ID, gapMarketCallAbi, wagmiConfig } from "./chain";
 import { marketAddresses, marketContracts, parseMarketReads, type MarketData, type Side } from "./market";
-import { awaitReceipt, runBet, runClaim, type FreshState, type TxDeps, type TxState } from "./marketTx";
+import { awaitReceipt, receiptOutcome, runBet, runClaim, type FreshState, type TxDeps, type TxState } from "./marketTx";
+import { browserInflight } from "./inflight";
 import { deriveRound } from "./round";
 
 const chainId = BASE_SEPOLIA_CHAIN_ID;
@@ -89,9 +90,12 @@ const realDeps: TxDeps = {
   },
   write: (request) => writeContract(wagmiConfig, request as never),
   waitReceipt: async (hash) => {
+    // viem returns the REPLACEMENT's receipt after a speed up or cancel: only the hash that was sent counts.
     const r = await waitForTransactionReceipt(wagmiConfig, { hash, chainId });
-    return { ok: r.status === "success" };
+    return receiptOutcome(hash, r);
   },
+  // A sent bet or claim is remembered per (round, wallet): a reload or second tab cannot send it twice.
+  inflight: browserInflight(chainId),
 };
 
 /**
@@ -105,6 +109,19 @@ export function useMarketActions(id: bigint | undefined, onSettled: () => void) 
   const { address, chainId: walletChain, isConnected } = useAccount();
   const [tx, setTx] = useState<TxState>({ step: "idle" });
   const correctChain = walletChain === BASE_SEPOLIA_CHAIN_ID;
+  const resumed = useRef<string | null>(null);
+
+  // After a reload: pick up a bet or claim that was sent and not confirmed, so the screen shows its real
+  // result and the buttons stay disabled until then.
+  useEffect(() => {
+    if (id === undefined || address === undefined) return;
+    const held = realDeps.inflight?.get(id, address, "market");
+    if (!held || !held.action.startsWith("market:")) return;
+    const key = `${id}:${address}:${held.hash}`;
+    if (resumed.current === key) return;
+    resumed.current = key;
+    void awaitReceipt(realDeps, held.label, held.hash, setTx, () => realDeps.inflight?.clear(id, address, "market")).finally(onSettled);
+  }, [id, address, onSettled]);
 
   const bet = useCallback(
     async (side: Side, amountText: string) => {
@@ -131,11 +148,13 @@ export function useMarketActions(id: bigint | undefined, onSettled: () => void) 
   const recheck = useCallback(async () => {
     if (tx.step !== "unconfirmed") return;
     try {
-      await awaitReceipt(realDeps, tx.label, tx.hash, setTx);
+      await awaitReceipt(realDeps, tx.label, tx.hash, setTx, () => {
+        if (id !== undefined && address !== undefined) realDeps.inflight?.clear(id, address, "market");
+      });
     } finally {
       onSettled();
     }
-  }, [tx, onSettled]);
+  }, [tx, onSettled, id, address]);
 
   return { tx, bet, claim, recheck, resetTx: () => setTx({ step: "idle" }), connected: isConnected, correctChain, address };
 }

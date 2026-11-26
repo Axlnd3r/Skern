@@ -235,7 +235,7 @@ export function MarketPanelView(props: MarketPanelViewProps) {
   );
 }
 
-function TxStatus({ tx, onRecheck }: { tx: TxState; onRecheck: () => void }) {
+export function TxStatus({ tx, onRecheck }: { tx: TxState; onRecheck: () => void }) {
   switch (tx.step) {
     case "idle":
       return null;

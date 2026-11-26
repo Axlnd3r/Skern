@@ -35,11 +35,15 @@ export type DrawChartProps = {
   /** True for the practice round: labeled, drawable, never committable. */
   simulated: boolean;
   connected: boolean;
+  /** Why a commit is not possible for reasons outside the drawing (not registered, not enough points). */
+  blocked?: string;
+  /** True while a commit transaction is in progress: the button is disabled. */
+  busy?: boolean;
   onCommit: (path: Path) => void;
 };
 
 /** Draggable close/high/low handles for 3 future candles. All value rules live in `@/lib/path`. */
-export function DrawChart({ T, phase, closing, simulated, connected, onCommit }: DrawChartProps) {
+export function DrawChart({ T, phase, closing, simulated, connected, blocked, busy = false, onCommit }: DrawChartProps) {
   const [handles, setHandles] = useState<Handles>(FLAT_HANDLES);
   const [active, setActive] = useState<number | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -48,7 +52,7 @@ export function DrawChart({ T, phase, closing, simulated, connected, onCommit }:
   const ctxFor = (value: number) => ({ value, min: -bound, max: bound });
   const path = handlesToPath(handles);
   const baseline = flatBaseline();
-  const guard = commitGuard({ path, phase, closing, simulated, connected });
+  const guard = commitGuard({ path, phase, closing, simulated, connected, ...(blocked !== undefined ? { blocked } : {}) });
   const y = (bp: number) => PAD + bpToY(bp, PLOT_H, bound);
 
   let preview: number | null = null;
@@ -192,15 +196,15 @@ export function DrawChart({ T, phase, closing, simulated, connected, onCommit }:
         <button
           type="button"
           className="btn primary"
-          disabled={!guard.ok}
+          disabled={!guard.ok || busy}
           title={guard.ok ? undefined : guard.reason}
           onClick={() => {
             // Re-check at click time on the exact path being committed.
             const p = handlesToPath(handles);
-            if (commitGuard({ path: p, phase, closing, simulated, connected }).ok) onCommit(p);
+            if (commitGuard({ path: p, phase, closing, simulated, connected, ...(blocked !== undefined ? { blocked } : {}) }).ok) onCommit(p);
           }}
         >
-          Commit path
+          {busy ? "Working..." : "Commit path"}
         </button>
       </div>
       {!guard.ok ? (

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useAccount } from "wagmi";
+import { ArenaClaim, MarketClaim } from "@/components/ClaimPanel";
 import { HouseAgents, UsNotice } from "@/components/Notices";
 import { PhaseTracker } from "@/components/PhaseTracker";
 import { ResultSectionView } from "@/components/ResultCard";
@@ -49,6 +50,7 @@ export default function Reveal() {
             id={latest.id}
             ticker={tickerLabel(round.params.ticker)}
             T={round.params.T}
+            entryStake={round.params.entryStake}
             phase={round.phase}
             countdownSec={round.countdownSec ?? 0}
             closing={round.closing}
@@ -66,6 +68,7 @@ function RevealBody(props: {
   id: bigint;
   ticker: string;
   T: number;
+  entryStake: bigint;
   phase: NonNullable<ReturnType<typeof useRound>["phase"]>;
   countdownSec: number;
   closing: boolean;
@@ -105,6 +108,19 @@ function RevealBody(props: {
         T={props.T}
         reads={view.state === "ready" ? view.reads : undefined}
       />
+      {props.phase === "settled" || props.phase === "void" ? (
+        <ArenaClaim
+          key={`claim-${props.id}`}
+          roundId={props.id}
+          phase={props.phase}
+          T={props.T}
+          entryStake={props.entryStake}
+          reads={view.state === "ready" ? view.reads : undefined}
+        />
+      ) : null}
+      {props.phase === "play" || props.phase === "settled" || props.phase === "void" ? (
+        <MarketClaim key={`market-claim-${props.id}`} roundId={props.id} phase={props.phase} />
+      ) : null}
       <Link href="/market" className="btn link-btn">
         Market and bets
       </Link>

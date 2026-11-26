@@ -91,3 +91,23 @@ describe("house agent list", () => {
     expect(HOUSE_NOTE).not.toMatch(/in this round/i);
   });
 });
+
+describe("call ABIs decode cross-contract reverts", () => {
+  const errs = (abi: readonly { type: string; name?: string }[]) => abi.filter((x) => x.type === "error").map((x) => x.name);
+  it("Arena calls know the Points errors raised by Points.spend", async () => {
+    const { arenaCallAbi, registryCallAbi } = await import("./chain");
+    expect(errs(arenaCallAbi)).toEqual(expect.arrayContaining(["InsufficientBalance", "NotSpender", "CommitWindowClosed", "NotRegistered"]));
+    expect(errs(registryCallAbi)).toEqual(expect.arrayContaining(["NotHuman", "AlreadyRegistered", "NotMinter"]));
+    // no duplicate error signatures
+    const sigs = arenaCallAbi.filter((x) => x.type === "error").map((x) => (x as { name: string }).name);
+    expect(new Set(sigs).size).toBe(sigs.length);
+  });
+  it("the keeper URL defaults to the local relay", async () => {
+    const { keeperUrl } = await import("./chain");
+    expect(keeperUrl).toBe("http://127.0.0.1:8787");
+  });
+  it("the gate address comes from shared/addresses.json", async () => {
+    const { gateAddress } = await import("./chain");
+    expect(gateAddress).toBe(deployed.contracts.AllowlistGate);
+  });
+});

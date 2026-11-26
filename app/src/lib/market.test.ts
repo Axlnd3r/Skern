@@ -386,3 +386,25 @@ describe("viewOfData", () => {
     expect(viewOfData("market", d).state).toBe("awaiting-freeze");
   });
 });
+
+describe("describeTxError covers the Arena and Registry reverts used by commit, reveal, claim and join", () => {
+  it("has plain text for each, never the generic failure", () => {
+    for (const name of [
+      "CommitWindowClosed",
+      "AlreadyCommitted",
+      "NotRegistered",
+      "RevealWindowClosed",
+      "NoCommit",
+      "AlreadyRevealed",
+      "InvalidPath",
+      "HashMismatch",
+      "NotRevealed",
+      "AlreadyRegistered",
+      "NotHuman",
+    ]) {
+      expect(describeTxError(name), name).not.toMatch(/^The transaction failed\.$/);
+    }
+    expect(describeTxError("NotHuman")).toMatch(/allowlist/i);
+    expect(describeTxError("NotRevealed")).toMatch(/burned/i);
+  });
+});

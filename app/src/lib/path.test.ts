@@ -285,6 +285,13 @@ describe("commitGuard", () => {
     expect(commitGuard({ ...ok, connected: false }).ok).toBe(false);
   });
 
+  it("an outside reason (not registered, not enough points) blocks and is the reason shown", () => {
+    const g = commitGuard({ ...ok, blocked: "Join as human first." });
+    expect(g).toEqual({ ok: false, reason: "Join as human first." });
+    // the drawing rules still come first
+    expect(commitGuard({ ...ok, connected: false, blocked: "x" })).toMatchObject({ reason: expect.stringMatching(/connect/i) });
+  });
+
   it("gives a reason when blocked", () => {
     const g = commitGuard({ ...ok, closing: true });
     expect(g.ok).toBe(false);

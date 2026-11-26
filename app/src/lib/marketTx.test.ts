@@ -2,8 +2,9 @@ import { ContractFunctionRevertedError, encodeErrorResult, type Address, type Ha
 import { describe, expect, it } from "vitest";
 import type { Path } from "../../../shared/score";
 import { gapMarketCallAbi } from "./chain";
+import { MemoryKV, createInflightStore } from "./inflight";
 import { SIDE_CODE, type MarketData } from "./market";
-import { awaitReceipt, isBusy, runBet, runClaim, type FreshState, type TxDeps, type TxState } from "./marketTx";
+import { awaitReceipt, isBusy, receiptOutcome, runBet, runClaim, type FreshState, type TxDeps, type TxState } from "./marketTx";
 import type { Phase, RoundView } from "./round";
 
 const WHO = "0x4444444444444444444444444444444444444444" as Address;
@@ -43,7 +44,7 @@ type Harness = {
 
 function harness(opts: {
   fresh?: FreshState;
-  wait?: () => Promise<{ ok: boolean }>;
+  wait?: () => Promise<{ ok: boolean; replaced?: boolean }>;
   simulate?: () => Promise<unknown>;
   account?: { address: Address | undefined; isConnected: boolean; chainId: number | undefined };
 }): Harness {
@@ -215,5 +216,94 @@ describe("claim click path", () => {
     expect(end.step).toBe("failed");
     if (end.step === "failed") expect(end.message).toMatch(/reading the result/i);
     expect(h.log).not.toContain("write");
+  });
+});
+
+describe("in-flight persistence (a reload or a second tab must not send twice)", () => {
+  function withStore(h: Harness, kv = new MemoryKV()) {
+    const inflight = createInflightStore(kv, 84532, () => 1000);
+    h.deps.inflight = inflight;
+    return { inflight, kv };
+  }
+
+  it("records the hash once sent, and clears it after a confirmed receipt", async () => {
+    const h = harness({});
+    const { inflight } = withStore(h);
+    let seen: unknown = null;
+    const wait = h.deps.waitReceipt;
+    h.deps.waitReceipt = async (hash) => {
+      seen = inflight.get(7n, WHO, "market");
+      return wait(hash);
+    };
+    await runBet(h.deps, { id: 7n, side: "human", amountText: "10" }, h.setTx);
+    expect(seen).toMatchObject({ action: "market:bet", hash: HASH });
+    expect(inflight.get(7n, WHO, "market")).toBeNull();
+  });
+
+  it("clears it after a reverted receipt, keeps it when the receipt lookup fails", async () => {
+    const reverted = harness({ wait: async () => ({ ok: false }) });
+    const a = withStore(reverted);
+    await runBet(reverted.deps, { id: 7n, side: "human", amountText: "10" }, reverted.setTx);
+    expect(a.inflight.get(7n, WHO, "market")).toBeNull();
+
+    const lookup = harness({ wait: () => Promise.reject(new Error("HTTP 429")) });
+    const b = withStore(lookup);
+    await runBet(lookup.deps, { id: 7n, side: "human", amountText: "10" }, lookup.setTx);
+    expect(b.inflight.get(7n, WHO, "market")).toMatchObject({ hash: HASH });
+  });
+
+  it("a second tab with a pending record sends nothing and shows the pending hash", async () => {
+    const kv = new MemoryKV();
+    const tab1 = harness({ wait: () => Promise.reject(new Error("HTTP 429")) });
+    withStore(tab1, kv);
+    await runBet(tab1.deps, { id: 7n, side: "human", amountText: "10" }, tab1.setTx);
+
+    const tab2 = harness({});
+    withStore(tab2, kv);
+    await runBet(tab2.deps, { id: 7n, side: "agent", amountText: "10" }, tab2.setTx);
+    expect(tab2.log).not.toContain("write");
+    expect(tab2.log).not.toContain("simulate");
+    const end = last(tab2);
+    expect(end.step).toBe("unconfirmed");
+    if (end.step === "unconfirmed") expect(end.hash).toBe(HASH);
+
+    const tab3 = harness({ fresh: { round: round("play"), data: market({ status: 1, stake: { human: 10n, agent: 0n } }) } });
+    withStore(tab3, kv);
+    await runClaim(tab3.deps, { id: 7n }, tab3.setTx);
+    expect(tab3.log).not.toContain("write");
+  });
+
+  it("awaitReceipt releases the record only on a final answer", async () => {
+    const released: string[] = [];
+    const ok = harness({});
+    expect(await awaitReceipt(ok.deps, "Bet", HASH, ok.setTx, () => released.push("ok"))).toBe("confirmed");
+    const bad = harness({ wait: async () => ({ ok: false }) });
+    expect(await awaitReceipt(bad.deps, "Bet", HASH, bad.setTx, () => released.push("bad"))).toBe("failed");
+    const lost = harness({ wait: () => Promise.reject(new Error("x")) });
+    expect(await awaitReceipt(lost.deps, "Bet", HASH, lost.setTx, () => released.push("lost"))).toBe("unconfirmed");
+    expect(released).toEqual(["ok", "bad"]);
+  });
+
+  it("a receipt of a replacing transaction is neither confirmed nor reverted: failed with its own text, record released", async () => {
+    const released: string[] = [];
+    const h = harness({ wait: async () => ({ ok: true, replaced: true }) });
+    expect(await awaitReceipt(h.deps, "Bet", HASH, h.setTx, () => released.push("r"))).toBe("failed");
+    const end = last(h);
+    expect(end.step).toBe("failed");
+    if (end.step === "failed") expect(end.message).toMatch(/replaced|cancelled/i);
+    expect(released).toEqual(["r"]);
+  });
+});
+
+describe("receiptOutcome (viem returns the replacement's receipt after a speed up or cancel)", () => {
+  const OTHER = `0x${"cd".repeat(32)}` as typeof HASH;
+  it("is ok only for the receipt of the hash the app sent", () => {
+    expect(receiptOutcome(HASH, { status: "success", transactionHash: HASH })).toEqual({ ok: true });
+    expect(receiptOutcome(HASH, { status: "success", transactionHash: HASH.toUpperCase().replace("0X", "0x") as typeof HASH })).toEqual({ ok: true });
+    expect(receiptOutcome(HASH, { status: "reverted", transactionHash: HASH })).toEqual({ ok: false });
+  });
+  it("marks another transaction's receipt as replaced, whatever its status", () => {
+    expect(receiptOutcome(HASH, { status: "success", transactionHash: OTHER })).toEqual({ ok: false, replaced: true });
+    expect(receiptOutcome(HASH, { status: "reverted", transactionHash: OTHER })).toEqual({ ok: false, replaced: true });
   });
 });

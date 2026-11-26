@@ -352,11 +352,23 @@ const TX_ERRORS: Record<string, string> = {
   ConsensusNotReady: "The consensus paths are not frozen yet. Try again in a moment.",
   ZeroAmount: "The amount must be at least 1 point.",
   InsufficientBalance: "Not enough points for this bet.",
-  NotClaimable: "The market is not final yet, so there is nothing to claim.",
-  AlreadyClaimed: "You already claimed in this market.",
+  NotClaimable: "This is not final yet, so there is nothing to claim.",
+  AlreadyClaimed: "You already claimed this.",
   NothingToClaim: "You have nothing to claim in this market.",
   UnknownRound: "This round does not exist.",
-  NotSpender: "The market contract is not allowed to spend points. This is a deployment problem.",
+  NotSpender: "The contract is not allowed to spend points. This is a deployment problem.",
+  // Arena (commit, reveal, claim) and Registry (registerHuman)
+  CommitWindowClosed: "The commit window is closed. Nothing was spent.",
+  AlreadyCommitted: "This wallet has already committed in this round.",
+  NotRegistered: "This wallet is not registered yet. Join as human first.",
+  RevealWindowClosed: "The reveal window is not open (it has not started or it is over).",
+  NoCommit: "This wallet has no commit in this round.",
+  AlreadyRevealed: "This entry is already revealed.",
+  InvalidPath: "The path is not valid, so it cannot be revealed.",
+  HashMismatch: "The path and salt do not match the commit on chain.",
+  NotRevealed: "This entry was not revealed, so its stake was burned and there is nothing to claim.",
+  AlreadyRegistered: "This wallet is already registered.",
+  NotHuman: "This wallet is not on the human allowlist, so it cannot join as a human.",
 };
 
 /** Plain text for a contract revert by error name; anything unknown is a generic failure. */
