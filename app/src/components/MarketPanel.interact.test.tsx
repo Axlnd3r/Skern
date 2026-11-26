@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -136,5 +138,40 @@ describe("MarketPanelView bet form", () => {
       data: { ...data, status: 2, stake: { human: 10n, agent: 0n }, scores: { human: 40, agent: 60, humanPresent: true, agentPresent: true } },
     });
     expect(container.textContent).toMatch(/nothing to claim/i);
+  });
+});
+
+describe("MarketPanelView 'pick a side' note", () => {
+  const note = () => container.querySelector(".note-row");
+
+  it("shows with the bet form (the same state) and sits just above it", () => {
+    mount();
+    expect(container.querySelector("form[data-bet-form]")).not.toBeNull();
+    expect(note()?.textContent).toBe("pick a side");
+    expect(note()?.getAttribute("aria-hidden")).toBe("true");
+    expect(note()?.nextElementSibling?.matches("form[data-bet-form]")).toBe(true);
+  });
+
+  it("is absent whenever the bet form is not rendered", () => {
+    // Market phase, but a side is below quorum: the market is cancelled, no form.
+    mount({ data: { ...data, reveals: { human: 2n, agent: 3n } } });
+    expect(container.querySelector("form[data-bet-form]")).toBeNull();
+    expect(note()).toBeNull();
+    // Market phase, quorum met but the consensus paths are not frozen yet: no form.
+    mount({ data: { ...data, consensus: { human: { path: PATH, ready: false }, agent: { path: PATH, ready: false } } } });
+    expect(container.querySelector("form[data-bet-form]")).toBeNull();
+    expect(note()).toBeNull();
+    // Other phases.
+    for (const phase of ["commit", "reveal", "play", "settled", "void"] as const) {
+      mount({ phase });
+      expect(container.querySelector("form[data-bet-form]"), `${phase} form`).toBeNull();
+      expect(note(), `${phase} note`).toBeNull();
+    }
+  });
+
+  it("the page no longer renders the note on its own (it would show without a form)", () => {
+    const page = readFileSync(join(__dirname, "..", "app", "market", "page.tsx"), "utf8");
+    expect(page).not.toContain("pick a side");
+    expect(page).not.toContain("Annotation");
   });
 });

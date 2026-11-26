@@ -19,6 +19,8 @@ import { fitBound } from "@/lib/reveal";
 import type { Phase } from "@/lib/round";
 import { isBusy, type TxState } from "@/lib/marketTx";
 import { useMarketActions, useMarketReads } from "@/lib/useMarket";
+import { Arrow } from "./doodle";
+import { Annotation } from "./doodle/Annotation";
 import { PathChart, SERIES_COLOR, type ChartSeries } from "./PathChart";
 
 const pct = (x: number) => Math.round(x * 100);
@@ -148,59 +150,65 @@ export function MarketPanelView(props: MarketPanelViewProps) {
       {series.length === 1 ? <p className="muted">Only one consensus path is frozen so far.</p> : null}
 
       {view.state === "betting" ? (
-        <form
-          className="bet-form"
-          data-bet-form
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!busy) props.onBet(side, amountText);
-          }}
-        >
-          <fieldset>
-            <legend>Which consensus will score higher?</legend>
-            {(["human", "agent"] as const).map((s) => (
-              <label key={s} className="radio">
-                <input
-                  type="radio"
-                  name="side"
-                  value={SIDE_CODE[s]}
-                  checked={side === s}
-                  onChange={() => setSide(s)}
-                  disabled={busy}
-                />{" "}
-                {s === "human" ? "Human" : "Agent"}
-              </label>
-            ))}
-          </fieldset>
-          <label>
-            Points to stake
-            <input
-              type="text"
-              inputMode="numeric"
-              autoComplete="off"
-              value={amountText}
-              onChange={(e) => setAmountText(e.target.value)}
-              disabled={busy}
-              aria-describedby="bet-hint"
-            />
-          </label>
-          <p id="bet-hint" className="muted" data-remaining={remaining.toString()}>
-            Your balance: {props.connected ? data.balance.toString() : "connect a wallet"} points. Per-address cap of{" "}
-            {data.cap.toString()} points per round (both sides together); you can still stake{" "}
-            {remaining.toString()}. You staked {data.stake.human.toString()} on Human and {data.stake.agent.toString()} on Agent.
-          </p>
-          {payout !== null ? (
-            <p className="muted">
-              At the current pools a winning bet of this size would pay about {payout.toString()} points. Later bets change this.
+        <>
+          {/* The note belongs to the form: it shows exactly when the form renders (same state), never on its own. */}
+          <Annotation text="pick a side">
+            <Arrow variant="leader" size={64} rotate={4} />
+          </Annotation>
+          <form
+            className="bet-form"
+            data-bet-form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!busy) props.onBet(side, amountText);
+            }}
+          >
+            <fieldset>
+              <legend>Which consensus will score higher?</legend>
+              {(["human", "agent"] as const).map((s) => (
+                <label key={s} className="radio">
+                  <input
+                    type="radio"
+                    name="side"
+                    value={SIDE_CODE[s]}
+                    checked={side === s}
+                    onChange={() => setSide(s)}
+                    disabled={busy}
+                  />{" "}
+                  {s === "human" ? "Human" : "Agent"}
+                </label>
+              ))}
+            </fieldset>
+            <label>
+              Points to stake
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                value={amountText}
+                onChange={(e) => setAmountText(e.target.value)}
+                disabled={busy}
+                aria-describedby="bet-hint"
+              />
+            </label>
+            <p id="bet-hint" className="muted" data-remaining={remaining.toString()}>
+              Your balance: {props.connected ? data.balance.toString() : "connect a wallet"} points. Per-address cap of{" "}
+              {data.cap.toString()} points per round (both sides together); you can still stake{" "}
+              {remaining.toString()}. You staked {data.stake.human.toString()} on Human and {data.stake.agent.toString()} on Agent.
             </p>
-          ) : null}
-          {!guard.ok ? <p className="hint">{guard.reason}</p> : null}
-          {closing ? <p className="error">The market window is closing: betting is disabled.</p> : null}
-          <button type="submit" className="btn primary" data-bet-submit disabled={!guard.ok || busy}>
-            {busy ? "Working..." : "Place bet"}
-          </button>
-          <p className="muted">No approval is needed: the market spends points directly. A bet cannot be undone.</p>
-        </form>
+            {payout !== null ? (
+              <p className="muted">
+                At the current pools a winning bet of this size would pay about {payout.toString()} points. Later bets change this.
+              </p>
+            ) : null}
+            {!guard.ok ? <p className="hint">{guard.reason}</p> : null}
+            {closing ? <p className="error">The market window is closing: betting is disabled.</p> : null}
+            <button type="submit" className="btn primary" data-bet-submit disabled={!guard.ok || busy}>
+              {busy ? "Working..." : "Place bet"}
+            </button>
+            <p className="muted">No approval is needed: the market spends points directly. A bet cannot be undone.</p>
+          </form>
+        </>
       ) : null}
 
       {final ? (

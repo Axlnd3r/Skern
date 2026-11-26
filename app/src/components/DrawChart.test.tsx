@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -90,6 +92,31 @@ describe("DrawChart drawing", () => {
     expect(apex(marks[2] as Element)).toBe(false); // low points down
     // the visible marks take no pointer events: the invisible handle circles stay the drag targets
     for (const m of container.querySelectorAll(".mark")) expect(m.getAttribute("data-handle")).toBeNull();
+    expect(container.querySelectorAll(".mark").length).toBeGreaterThan(0);
+  });
+
+  it("the stylesheet gives the visible marks and the hand-written notes pointer-events: none", () => {
+    // jsdom does not load globals.css, so read the rule itself: a mark that took events would steal drags from its handle.
+    const css = readFileSync(join(__dirname, "..", "app", "globals.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    const declsOf = (selector: string) => {
+      const out = new Map<string, string>();
+      for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+        if (!(m[1] as string).split(",").some((s) => s.trim().replace(/\s+/g, " ") === selector)) continue;
+        for (const d of (m[2] as string).split(";")) {
+          const i = d.indexOf(":");
+          if (i > 0) out.set(d.slice(0, i).trim(), d.slice(i + 1).trim());
+        }
+      }
+      return out;
+    };
+    render();
+    // the classes the rules name are really on the rendered elements (and the notes sit in the chart svg)
+    expect(container.querySelector("svg.chart .mark")).not.toBeNull();
+    expect(container.querySelector("svg.chart .chart-note")).not.toBeNull();
+    expect(declsOf(".chart .mark").get("pointer-events")).toBe("none");
+    expect(declsOf(".chart .chart-note").get("pointer-events")).toBe("none");
+    // the draggable handle is the only element that takes them
+    expect(declsOf(".chart .handle").get("pointer-events")).not.toBe("none");
   });
 
   it("labels candle 1's handles with hidden hand-written notes, tracking the handle", () => {

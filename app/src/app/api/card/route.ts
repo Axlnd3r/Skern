@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { createElement, type ReactElement } from "react";
 import { ImageResponse } from "next/og";
 import { baselineLine, CARD_FOOTER, cardVerifyLine, nearMissLine, parseCardParams, type CardParams } from "@/lib/near";
-import { C } from "./theme";
+import { C, CARD_GRID_LINE } from "./theme";
 
 // Public endpoint: every input is validated by `parseCardParams` (digits and capital letters only,
 // bounded, unknown parameters rejected so the shared cache cannot be bypassed), nothing is echoed back
@@ -111,8 +111,7 @@ function card(p: CardParams): ReactElement {
       height: "100%",
       padding: "30px 46px 46px 30px",
       background: C.paper,
-      backgroundImage:
-        "linear-gradient(rgba(22,21,19,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(22,21,19,0.06) 1px, transparent 1px)",
+      backgroundImage: `linear-gradient(${CARD_GRID_LINE} 1px, transparent 1px), linear-gradient(90deg, ${CARD_GRID_LINE} 1px, transparent 1px)`,
       backgroundSize: "24px 24px",
     },
     h(

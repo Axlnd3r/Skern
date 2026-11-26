@@ -10,7 +10,7 @@ import { DashboardView } from "../DashboardView";
 import { PhaseTracker } from "../PhaseTracker";
 import { simulatedRounds } from "@/lib/history";
 import { Annotation } from "./Annotation";
-import { ANNOTATION_MAX, fillRing, markStyle, shortNote, stickerFontSize } from "./helpers";
+import { ANNOTATION_MAX, RING_EM, RING_LENGTH, RING_MAX_DIGITS, markStyle, ringFontSize, ringRoundLabel, shortNote, stickerFontSize } from "./helpers";
 import { Arrow, Cloud, Pencil, ScribbleCircle, Sparkle, Squiggle, Star, Sticker, Tick, Underline } from "./index";
 import { PhaseSticker, ringFor } from "./PhaseSticker";
 
@@ -119,7 +119,31 @@ describe("PhaseSticker", () => {
 
   it("fits every phase word in the inner ring", () => {
     for (const w of ["COMMIT", "REVEAL", "MARKET", "PLAY", "SETTLED", "VOID"]) expect(stickerFontSize(w) * w.length * 0.5).toBeLessThanOrEqual(70);
-    expect(ringFor(3n).length).toBeGreaterThanOrEqual(44);
+  });
+
+  it("the ring text fits its circle without glyphs touching, for the longest round number", () => {
+    // Natural width (no letter-spacing squeeze) of the text at its font size must not exceed the textLength the
+    // svg stretches it to; otherwise lengthAdjust="spacing" would use negative spacing and the glyphs overlap.
+    for (const id of [0n, 7n, 12345n, 123456789n, 10n ** 9n, 10n ** 40n, 2n ** 256n - 1n]) {
+      const text = ringFor(id);
+      const size = ringFontSize(text);
+      expect(size, `font size for round ${id}`).toBeGreaterThanOrEqual(8);
+      expect(text.length * RING_EM * size, `ring text of round ${id}`).toBeLessThanOrEqual(RING_LENGTH * 0.97);
+    }
+    // 9 digits is shown in full; more digits are cut to the last 9 behind an ellipsis, so the ring never grows with the id.
+    expect(ringRoundLabel(123456789n)).toBe("123456789");
+    expect(ringRoundLabel(10n ** 9n)).toBe("…" + "00000000");
+    expect(ringRoundLabel(2n ** 256n).length).toBeLessThanOrEqual(RING_MAX_DIGITS);
+    expect(ringFor(123456789n)).toBe("ROUND 123456789 · TESTNET POINTS ONLY · ");
+  });
+
+  it("the ring text is written once (never repeated, so it cannot be squeezed) with the font size it was fitted for", () => {
+    render(<PhaseSticker phase="market" roundId={123456789n} />);
+    const tp = container.querySelector("textPath") as SVGElement;
+    expect(tp.textContent?.match(/TESTNET/g)).toHaveLength(1);
+    expect(tp.getAttribute("textLength")).toBe(String(RING_LENGTH));
+    const text = container.querySelector("text.sticker-ring-text") as SVGElement;
+    expect(text.style.fontSize).toBe(`${ringFontSize(tp.textContent ?? "")}px`);
   });
 });
 
@@ -181,12 +205,6 @@ describe("annotations", () => {
 });
 
 describe("helpers", () => {
-  it("fillRing repeats the base until the ring is full", () => {
-    expect(fillRing("AB ", 7)).toBe("AB AB AB ");
-    expect(fillRing("AB", 4)).toBe("AB AB ");
-    expect(fillRing("LONG TEXT HERE ", 4)).toBe("LONG TEXT HERE ");
-  });
-
   it("markStyle carries size and orientation", () => {
     const s = markStyle(40, 0.5, -10, true) as Record<string, unknown>;
     expect(s).toMatchObject({ width: 40, height: 20, "--rot": "-10deg", "--flip": -1 });

@@ -2,8 +2,6 @@
 
 import Link from "next/link";
 import { Countdown } from "@/components/Countdown";
-import { Arrow } from "@/components/doodle";
-import { Annotation } from "@/components/doodle/Annotation";
 import { PhaseSticker } from "@/components/doodle/PhaseSticker";
 import { MarketPanel } from "@/components/MarketPanel";
 import { HouseAgents, UsNotice } from "@/components/Notices";
@@ -50,11 +48,6 @@ export default function Market() {
               text={round.phase === "settled" ? "Final" : round.phase === "void" ? "Void" : formatCountdown(round.countdownSec ?? 0)}
             />
             <PhaseTracker phase={round.phase} closing={round.closing} />
-            {round.phase === "market" ? (
-              <Annotation text="pick a side">
-                <Arrow variant="leader" size={64} rotate={4} />
-              </Annotation>
-            ) : null}
             <MarketPanel roundId={latest.id} T={round.params.T} phase={round.phase} closing={round.closing} />
             {round.phase === "play" || round.phase === "settled" ? (
               <Link href="/reveal" className="btn primary link-btn">

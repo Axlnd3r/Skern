@@ -1,5 +1,5 @@
 import type { Phase } from "@/lib/round";
-import { fillRing } from "./helpers";
+import { ringRoundLabel } from "./helpers";
 import { Sticker, Star } from "./index";
 
 const WORD: Record<Phase, string> = {
@@ -11,9 +11,12 @@ const WORD: Record<Phase, string> = {
   void: "VOID",
 };
 
-/** The text that runs around the stamp. Pure so it can be tested: it names the round and repeats the testnet note. */
+/**
+ * The text that runs around the stamp, written once: it names the round and repeats the testnet note. Pure so it can
+ * be tested. It is not repeated to fill the ring, because more characters than the ring holds would overlap.
+ */
 export function ringFor(roundId: bigint): string {
-  return fillRing(`ROUND ${roundId.toString()} · TESTNET POINTS ONLY · `);
+  return `ROUND ${ringRoundLabel(roundId)} · TESTNET POINTS ONLY · `;
 }
 
 /**

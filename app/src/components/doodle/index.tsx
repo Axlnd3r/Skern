@@ -1,5 +1,5 @@
 import { useId, type CSSProperties, type ReactNode } from "react";
-import { markStyle, stickerFontSize } from "./helpers";
+import { RING_LENGTH, markStyle, ringFontSize, stickerFontSize } from "./helpers";
 
 /*
   Original hand-drawn marks (no characters, no faces). Every mark is a stroke in the ink color with round caps,
@@ -181,8 +181,8 @@ export function Sticker(props: MarkProps & { label: string; ring: string; tilt?:
         d="M60 24 C 80 24, 96 40, 95.5 61 C 95 80, 79 96, 59 95.5 C 39 95, 24 80, 24.5 59 C 25 40, 40 24.5, 61 24.5 C 64 24.4, 66 25, 67.5 26"
       />
       <g className="sticker-ring">
-        <text className="sticker-ring-text">
-          <textPath href={`#${guideId}`} textLength={256} lengthAdjust="spacing">
+        <text className="sticker-ring-text" style={{ fontSize: ringFontSize(props.ring) }}>
+          <textPath href={`#${guideId}`} textLength={RING_LENGTH} lengthAdjust="spacing">
             {props.ring}
           </textPath>
         </text>

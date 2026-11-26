@@ -25,3 +25,7 @@ export const C = {
   ochreInk: CARD_TOKENS["--ochre-ink"],
   hilite: CARD_TOKENS["--hilite"],
 } as const;
+
+// The graph-paper line behind the card: the page's grid, ink at --grid-pct (6%) over transparent. It is the one
+// transparent color, so it is not a :root token of its own; globals.contrast.test.ts derives it from --ink and --grid-pct.
+export const CARD_GRID_LINE = "rgba(22,21,19,0.06)";
