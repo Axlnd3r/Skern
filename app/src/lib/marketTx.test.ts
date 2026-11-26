@@ -290,7 +290,12 @@ describe("in-flight persistence (a reload or a second tab must not send twice)",
     expect(await awaitReceipt(h.deps, "Bet", HASH, h.setTx, () => released.push("r"))).toBe("failed");
     const end = last(h);
     expect(end.step).toBe("failed");
-    if (end.step === "failed") expect(end.message).toMatch(/replaced|cancelled/i);
+    if (end.step === "failed") {
+      // neutral: a speed-up of the same transaction may have landed, so no "did not run" and no "try again"
+      expect(end.message).toMatch(/replaced in your wallet/i);
+      expect(end.message).toMatch(/checking the chain/i);
+      expect(end.message).not.toMatch(/did not run|try again|cancelled/i);
+    }
     expect(released).toEqual(["r"]);
   });
 });

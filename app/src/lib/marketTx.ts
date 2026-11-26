@@ -77,7 +77,7 @@ const UNREADABLE = "Could not read the market from Base Sepolia. Nothing was sen
 
 /** Shown when the receipt is the one of a replacing transaction. */
 export const REPLACED_MESSAGE =
-  "The transaction was replaced or cancelled in your wallet, so it did not run as sent. Check your wallet and the chain status below; you can try again.";
+  "The transaction was replaced in your wallet. Checking the chain for the result…";
 
 /** Shown when this wallet already has a transaction in flight for the round (reload or second tab). */
 export const HELD_MESSAGE =

@@ -5,7 +5,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RelayState } from "@/lib/actionTx";
 import type { TxState } from "@/lib/marketTx";
 import type { EntryView } from "@/lib/player";
-import { EntryPanelView } from "./EntryPanel";
+import { EntryPanel, EntryPanelView } from "./EntryPanel";
+
+// The wiring test below replaces the browser hooks; the pure view and deriveEntry stay real.
+const lookupMock = vi.hoisted(() => ({ current: undefined as unknown }));
+vi.mock("@/lib/useActions", () => ({
+  useSaltLookup: () => lookupMock.current,
+  useEntryActions: () => {
+    throw new Error("not used: EntryPanel receives its actions as a prop");
+  },
+}));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -109,11 +118,69 @@ describe("EntryPanelView", () => {
     expect(container.textContent).toMatch(/Confirm in your wallet: Commit your path/);
   });
 
+  it("a pending transaction does not block the relay button once the commit is on chain", () => {
+    const f = mount(committed(), { tx: { step: "pending", label: "Commit your path", hash: `0x${"ab".repeat(32)}` } });
+    expect(q("[data-relay-send]")?.disabled).toBe(false);
+    expect(q("[data-reveal-manual]")?.disabled).toBe(true);
+    click(q("[data-relay-send]"));
+    expect(f.onRelay).toHaveBeenCalledTimes(1);
+  });
+
   it("an unconfirmed transaction offers a re-check, not a second send", () => {
     const f = mount(committed(), { tx: { step: "unconfirmed", label: "Reveal your path", hash: `0x${"ab".repeat(32)}`, message: "Sent, not confirmed." } });
     expect(q("[data-recheck]")).not.toBeNull();
     expect(q("[data-reveal-manual]")?.disabled).toBe(true);
     click(q("[data-recheck]"));
     expect(f.onRecheck).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("EntryPanel wiring (stale pending commit transaction after a reload)", () => {
+  const CHAIN_HASH = `0x${"11".repeat(32)}` as const;
+  const OTHER_HASH = `0x${"22".repeat(32)}` as const;
+  const WHO = `0x${"33".repeat(20)}` as const;
+  const pending: TxState = { step: "pending", label: "Commit your path", hash: `0x${"ab".repeat(32)}` };
+
+  function wire(opts: { savedHash: `0x${string}`; tx: TxState }) {
+    lookupMock.current = { state: "found", record: { hash: opts.savedHash, relayAck: false } };
+    const resendRelay = vi.fn(async () => {});
+    const actions = {
+      tx: opts.tx,
+      relay: { step: "idle" } as RelayState,
+      commit: vi.fn(),
+      resendRelay,
+      reveal: vi.fn(),
+      recheck: vi.fn(),
+    };
+    const player = {
+      reads: { entry: { kind: 1, revealed: false, hash: CHAIN_HASH, path: [] } },
+      refetch: vi.fn(),
+      configured: true,
+      address: WHO,
+      connected: true,
+      correctChain: true,
+    };
+    act(() => {
+      root.render(<EntryPanel roundId={1n} phase="reveal" closing={false} player={player as never} actions={actions as never} />);
+    });
+    return actions;
+  }
+
+  it("sends the saved path to the relay although the commit transaction still shows pending, when the chain hash is a saved record", () => {
+    const a = wire({ savedHash: CHAIN_HASH, tx: pending });
+    expect(a.resendRelay).toHaveBeenCalledTimes(1);
+    expect(q("[data-relay-send]")?.disabled).toBe(false);
+  });
+
+  it("does not relay when the chain hash matches no saved record", () => {
+    const a = wire({ savedHash: OTHER_HASH, tx: pending });
+    expect(a.resendRelay).not.toHaveBeenCalled();
+    expect(q("[data-relay-send]")).toBeNull();
+  });
+
+  it("still waits while a transaction is being signed or checked", () => {
+    const a = wire({ savedHash: CHAIN_HASH, tx: { step: "signing", label: "Commit your path" } });
+    expect(a.resendRelay).not.toHaveBeenCalled();
+    expect(q("[data-relay-send]")?.disabled).toBe(true);
   });
 });

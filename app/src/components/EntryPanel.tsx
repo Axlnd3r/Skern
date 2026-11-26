@@ -20,6 +20,16 @@ export type EntryPanelViewProps = {
   onRecheck: () => void;
 };
 
+/**
+ * Whether the entry transaction state holds back the relay. Only used where the chain entry hash already equals a
+ * saved record's hash (`view.canRelay`, `lookup` found), i.e. the commit is on chain. Then a "pending" transaction
+ * is stale (for example the old hash of a sped-up commit, re-adopted after a reload) and must not delay the relay:
+ * the reveal window can be as short as 30 s. `AlreadyRevealed` counts as success on the relay side.
+ */
+export function txBlocksRelay(tx: TxState): boolean {
+  return isBusy(tx) && tx.step !== "pending";
+}
+
 function RelayLine({ relay, relayAck }: { relay: RelayState; relayAck: boolean }) {
   switch (relay.step) {
     case "sending":
@@ -58,6 +68,7 @@ function RelayLine({ relay, relayAck }: { relay: RelayState; relayAck: boolean }
  */
 export function EntryPanelView({ view, relayAck, tx, relay, onRelay, onReveal, onRecheck }: EntryPanelViewProps) {
   const busy = isBusy(tx) || relay.step === "sending";
+  const relayBusy = txBlocksRelay(tx) || relay.step === "sending";
   if (view.stage === "no-wallet" || view.stage === "none" || view.stage === "agent") {
     // Nothing to show before a commit; a commit transaction in progress still needs its status line.
     return tx.step === "idle" && relay.step === "idle" ? null : (
@@ -78,7 +89,7 @@ export function EntryPanelView({ view, relayAck, tx, relay, onRelay, onReveal, o
       {view.canRelay || view.canReveal ? (
         <div className="row">
           {view.canRelay ? (
-            <button type="button" className="btn" data-relay-send disabled={busy} onClick={onRelay}>
+            <button type="button" className="btn" data-relay-send disabled={relayBusy} onClick={onRelay}>
               Send my path to the relay
             </button>
           ) : null}
@@ -130,7 +141,7 @@ export function EntryPanel(props: {
   const auto = useRef<string | null>(null);
   const { resendRelay } = actions;
   const autoKey = `${props.roundId}:${player.address}`;
-  const shouldAuto = view.canRelay && lookup?.state === "found" && !relayAck && actions.relay.step === "idle" && !isBusy(actions.tx);
+  const shouldAuto = view.canRelay && lookup?.state === "found" && !relayAck && actions.relay.step === "idle" && !txBlocksRelay(actions.tx);
   useEffect(() => {
     if (!shouldAuto || auto.current === autoKey) return;
     auto.current = autoKey;
