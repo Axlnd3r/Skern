@@ -4,7 +4,7 @@ import { HOUSE_AGENTS, HOUSE_HEADING, HOUSE_LABEL, HOUSE_NOTE, NO_ENDORSEMENT, U
 export function UsNotice() {
   return (
     <aside className="notice" role="note" aria-label="Disclaimer">
-      <strong>Notice.</strong> <span>{US_NOTICE}</span>
+      <strong className="notice-lead">Notice.</strong> <span>{US_NOTICE}</span>
       <br />
       <span>{NO_ENDORSEMENT}</span>
     </aside>
@@ -14,7 +14,7 @@ export function UsNotice() {
 /** House agents are labeled and never presented as organic users. */
 export function HouseAgents() {
   return (
-    <section className="card">
+    <section className="card house">
       <h2>{HOUSE_HEADING}</h2>
       <p className="muted">{HOUSE_NOTE}</p>
       <ul className="agents">

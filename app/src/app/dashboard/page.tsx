@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { DashboardView } from "@/components/DashboardView";
+import { Squiggle } from "@/components/doodle";
 import { HouseAgents, UsNotice } from "@/components/Notices";
-import { WalletButton } from "@/components/WalletButton";
+import { PageHeader } from "@/components/PageHeader";
 import { addresses } from "@/lib/chain";
 import { houseAgentConfig } from "@/lib/historySource";
 import { simulatedRounds } from "@/lib/history";
@@ -22,10 +23,7 @@ export default function Dashboard() {
 
   return (
     <main className="page wide">
-      <header className="top">
-        <h1>Consensus Path</h1>
-        <WalletButton />
-      </header>
+      <PageHeader />
 
       <UsNotice />
 
@@ -36,6 +34,7 @@ export default function Dashboard() {
             Back to Today&apos;s Round
           </Link>
         </h2>
+        <Squiggle className="doodle-divider" size={132} />
         <p className="muted">
           Human consensus score against Agent consensus score for each settled round on Base Sepolia, read from contract views
           and reveal logs. Prices are shown only as basis point moves from P0.

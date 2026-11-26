@@ -2,11 +2,15 @@
 
 import Link from "next/link";
 import { DrawChart } from "@/components/DrawChart";
+import { Countdown } from "@/components/Countdown";
+import { Arrow, Pencil } from "@/components/doodle";
+import { Annotation } from "@/components/doodle/Annotation";
+import { PhaseSticker } from "@/components/doodle/PhaseSticker";
 import { EntryPanel } from "@/components/EntryPanel";
 import { HouseAgents, UsNotice } from "@/components/Notices";
+import { PageHeader } from "@/components/PageHeader";
 import { PhaseTracker } from "@/components/PhaseTracker";
 import { PlayerPanel } from "@/components/PlayerPanel";
-import { WalletButton } from "@/components/WalletButton";
 import { isBusy } from "@/lib/marketTx";
 import { PRACTICE_ROUND, flatBaseline } from "@/lib/path";
 import { commitPreflight } from "@/lib/player";
@@ -55,10 +59,7 @@ export default function Draw() {
 
   return (
     <main className="page">
-      <header className="top">
-        <h1>Consensus Path</h1>
-        <WalletButton />
-      </header>
+      <PageHeader />
 
       <UsNotice />
 
@@ -71,13 +72,12 @@ export default function Draw() {
         </h2>
         {live && params && phase ? (
           <>
+            {liveId !== undefined ? <PhaseSticker phase={phase} roundId={liveId} /> : null}
             <p className="stock">
               <span className="ticker">{tickerLabel(params.ticker)}</span>{" "}
               <span className="muted">round #{liveId?.toString()}</span>
             </p>
-            <p className="countdown" aria-label="Time left in this phase">
-              {phase === "settled" || phase === "void" ? "Final" : formatCountdown(round.countdownSec ?? 0)}
-            </p>
+            <Countdown text={phase === "settled" || phase === "void" ? "Final" : formatCountdown(round.countdownSec ?? 0)} />
             <PhaseTracker phase={phase} closing={round.closing} />
             <p className="muted">
               Entry stake: {params.entryStake.toString()} points, taken when you commit and returned (with any reward) when you
@@ -89,6 +89,9 @@ export default function Draw() {
             <span className="tag">simulated</span> Practice round, not a real round. {practiceWhy} Commit is disabled.
           </p>
         )}
+        <Annotation text="your draw" lead={<Pencil className="note-lead" size={58} rotate={-18} />}>
+          <Arrow variant="leader" size={64} rotate={8} />
+        </Annotation>
         {/* One DrawChart in a fixed position: a drawing in progress survives the round becoming readable. */}
         <DrawChart
           T={live && params ? params.T : PRACTICE_ROUND.T}
@@ -105,7 +108,7 @@ export default function Draw() {
         ) : null}
       </section>
 
-      <section className="card">
+      <section className="card player-card">
         <PlayerPanel player={player} />
       </section>
 

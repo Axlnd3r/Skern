@@ -264,6 +264,54 @@ describe("palette contrast (WCAG 2.x)", () => {
     }
   });
 
+  it("stage 2 surfaces keep their text readable", () => {
+    const hilite = token("--hilite");
+    const house = effective(".card.house");
+    const houseBg = resolve(house.get("background")) as string;
+    expect(houseBg, ".card.house has a literal background").toBeDefined();
+    check("ink on the house sheet", token("--ink"), houseBg, 7);
+    check("muted on the house sheet", token("--muted"), houseBg, 4.5);
+    check("sticker label and ring text (ink) on the stamp disc", token("--ink"), resolve(effective(".doodle-sticker .sticker-disc").get("fill")) as string, 7);
+    check("checked bet side (ink) on its highlight", token("--ink"), resolve(effective(".bet-form label.radio:has(input:checked)").get("background")) as string, 7);
+    check("wallet address tag (ink) on its highlight", token("--ink"), resolve(effective(".wallet .addr").get("background")) as string, 7);
+    check("hilite is the sticker, side and address highlight", token("--ink"), hilite, 7);
+    check("notice lead word on the notice highlight", token("--ink"), token("--hilite-soft"), 7);
+    // Score colors in the reveal table sit on the card.
+    check("human score blue on card", resolve(effective(".reveal [data-score-human]").get("color")) as string, card, 4.5);
+    check("agent score ochre-ink on card", resolve(effective(".reveal [data-score-agent]").get("color")) as string, card, 4.5);
+  });
+
+  it("doodles never take clicks, and every animation lives in the no-preference media block", () => {
+    expect(effective(".doodle").get("pointer-events")).toBe("none");
+    expect(effective(".sticker-wrap").get("pointer-events")).toBe("none");
+    expect(effective(".note-row").get("pointer-events")).toBe("none");
+    // Strip every @media block: what remains is the static (reduced motion) stylesheet and must not animate.
+    let rest = css;
+    for (const body of mediaBodies(css)) rest = rest.replace(body, "");
+    expect(rest, "no animation outside @media").not.toMatch(/(^|[\s;{])animation(-[a-z-]+)?\s*:/);
+    expect(rest, "no @keyframes outside @media").not.toMatch(/@keyframes/);
+    const motion = mediaBodies(css).find((b) => b.includes("@keyframes")) ?? "";
+    expect(mediaBodies(css).some((b) => b.includes("@keyframes") && b.includes("animation")), "keyframes and animations share a block").toBe(true);
+    // Every animation duration except the slow ring is under about 600ms.
+    const timed = [...motion.matchAll(/animation:\s*([\w-]+)\s+([\d.]+)(m?s)/g)];
+    expect(timed.length, "durations were parsed").toBeGreaterThanOrEqual(5);
+    for (const m of timed) {
+      const ms = m[3] === "s" ? Number(m[2]) * 1000 : Number(m[2]);
+      if (m[1] !== "ring-spin") expect(ms, `${m[1]} duration`).toBeLessThanOrEqual(600);
+    }
+  });
+
+  it("the dashboard table scrolls inside a wrapper instead of being display:block", () => {
+    expect(effective(".dash-table").get("display")).toBeUndefined();
+    expect(effective(".table-scroll").get("overflow-x")).toBe("auto");
+  });
+
+  it("wallet error text is at least 0.9rem", () => {
+    const rem = /^(\d+(?:\.\d+)?)rem$/.exec(effective(".wallet-wrap .error").get("font-size") ?? "");
+    expect(rem).not.toBeNull();
+    expect(Number(rem?.[1])).toBeGreaterThanOrEqual(0.9);
+  });
+
   it("the chart axis labels stay clear of candle 1's high handle at the default flat path", () => {
     // DrawChart geometry: the P0 label starts at x=20 and candle 1's high handle spans x 174..190.
     // "P0 (0 bp), flat baseline" is about 10.5em wide, so its right edge must stay left of 174 with a margin.

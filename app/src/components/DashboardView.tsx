@@ -131,34 +131,36 @@ export function DashboardView(props: {
 
       <section className="card" aria-label="Rounds">
         <h2>Rounds</h2>
-        <table className="values dash-table">
-          <thead>
-            <tr>
-              <th>Round</th>
-              <th>Human</th>
-              <th>Agent</th>
-              <th>Gap</th>
-              <th>Result</th>
-            </tr>
-          </thead>
-          <tbody>
-            {shown.map((r) => {
-              const gap = gapOf(r);
-              return (
-                <tr key={`${r.simulated ? "s" : "c"}-${r.id}`}>
-                  <td>
-                    #{String(r.id)} {r.ticker}
-                    {r.simulated ? <SimulatedTag /> : null}
-                  </td>
-                  <td>{r.state === "settled" && r.humanScore !== null ? r.humanScore : "-"}</td>
-                  <td>{r.state === "settled" && r.agentScore !== null ? r.agentScore : "-"}</td>
-                  <td>{gap === null ? "-" : signed(gap)}</td>
-                  <td>{resultText(r)}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <div className="table-scroll" tabIndex={0} role="region" aria-label="Rounds table, scrolls sideways on narrow screens">
+          <table className="values dash-table">
+            <thead>
+              <tr>
+                <th>Round</th>
+                <th>Human</th>
+                <th>Agent</th>
+                <th>Gap</th>
+                <th>Result</th>
+              </tr>
+            </thead>
+            <tbody>
+              {shown.map((r) => {
+                const gap = gapOf(r);
+                return (
+                  <tr key={`${r.simulated ? "s" : "c"}-${r.id}`}>
+                    <td>
+                      #{String(r.id)} {r.ticker}
+                      {r.simulated ? <SimulatedTag /> : null}
+                    </td>
+                    <td>{r.state === "settled" && r.humanScore !== null ? r.humanScore : "-"}</td>
+                    <td>{r.state === "settled" && r.agentScore !== null ? r.agentScore : "-"}</td>
+                    <td>{gap === null ? "-" : signed(gap)}</td>
+                    <td>{resultText(r)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section className="card" aria-label="Leaderboard">
@@ -166,32 +168,34 @@ export function DashboardView(props: {
         {board.length === 0 ? (
           <p className="muted">No revealed entries in a settled round yet.</p>
         ) : (
-          <table className="values dash-table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Entry</th>
-                <th>Kind</th>
-                <th>Rounds</th>
-                <th>Avg</th>
-                <th>Best</th>
-              </tr>
-            </thead>
-            <tbody>
-              {board.map((row, i) => (
-                <tr key={row.who.toLowerCase()}>
-                  <td>{i + 1}</td>
-                  <td className="addr">{shortWho(row.who)}</td>
-                  <td>
-                    <KindTag row={row} />
-                  </td>
-                  <td>{row.rounds}</td>
-                  <td>{avgText(row.avg10)}</td>
-                  <td>{row.best}</td>
+          <div className="table-scroll" tabIndex={0} role="region" aria-label="Leaderboard table, scrolls sideways on narrow screens">
+            <table className="values dash-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Entry</th>
+                  <th>Kind</th>
+                  <th>Rounds</th>
+                  <th>Avg</th>
+                  <th>Best</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {board.map((row, i) => (
+                  <tr key={row.who.toLowerCase()}>
+                    <td>{i + 1}</td>
+                    <td className="addr">{shortWho(row.who)}</td>
+                    <td>
+                      <KindTag row={row} />
+                    </td>
+                    <td>{row.rounds}</td>
+                    <td>{avgText(row.avg10)}</td>
+                    <td>{row.best}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
         <p className="muted">
           Average of each entry&apos;s own score over settled rounds, scored with the shared scoring code. Humans and agents

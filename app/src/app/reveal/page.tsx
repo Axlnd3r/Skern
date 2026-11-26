@@ -4,10 +4,12 @@ import Link from "next/link";
 import { useAccount } from "wagmi";
 import { ArenaClaim, MarketClaim } from "@/components/ClaimPanel";
 import { HouseAgents, UsNotice } from "@/components/Notices";
+import { Countdown } from "@/components/Countdown";
+import { PhaseSticker } from "@/components/doodle/PhaseSticker";
+import { PageHeader } from "@/components/PageHeader";
 import { PhaseTracker } from "@/components/PhaseTracker";
 import { ResultSectionView } from "@/components/ResultCard";
 import { RevealPlayer } from "@/components/RevealPlayer";
-import { WalletButton } from "@/components/WalletButton";
 import { deriveReveal, type RevealReads } from "@/lib/reveal";
 import { formatCountdown, tickerLabel, useLatestRoundId, useRound } from "@/lib/round";
 import { useMyEntry } from "@/lib/useMyEntry";
@@ -21,10 +23,7 @@ export default function Reveal() {
 
   return (
     <main className="page">
-      <header className="top">
-        <h1>Consensus Path</h1>
-        <WalletButton />
-      </header>
+      <PageHeader />
 
       <UsNotice />
 
@@ -78,12 +77,11 @@ function RevealBody(props: {
   const terminal = props.phase === "settled" || props.phase === "void";
   return (
     <>
+      <PhaseSticker phase={props.phase} roundId={props.id} />
       <p className="stock">
         <span className="ticker">{props.ticker}</span> <span className="muted">round #{props.id.toString()}</span>
       </p>
-      <p className="countdown" aria-label="Time left in this phase">
-        {terminal ? (props.phase === "void" ? "Void" : "Final") : formatCountdown(props.countdownSec)}
-      </p>
+      <Countdown text={terminal ? (props.phase === "void" ? "Void" : "Final") : formatCountdown(props.countdownSec)} />
       <PhaseTracker phase={props.phase} closing={props.closing} />
       {view.state === "ready" && view.reads ? (
         <RevealPlayer

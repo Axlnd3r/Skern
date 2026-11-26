@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ScribbleCircle, Sparkle } from "./doodle";
 import { HOUSE_LABEL } from "@/lib/disclaimer";
 import { baselineLine, cardParamsFor, cardUrl, deriveMyResult, nearMissLine, type EntryRead, type MyResult } from "@/lib/near";
 import { outcomeLine, type RevealReads } from "@/lib/reveal";
@@ -57,6 +58,8 @@ export function ResultCard(props: ResultCardProps) {
         <>
           <p className="big-score" data-my-score={score}>
             {score}
+            <ScribbleCircle />
+            <Sparkle className="big-score-spark" size={28} rotate={10} />
           </p>
           {hasAgent ? <p>{nearMissLine(score, agentScore)}</p> : <p className="muted">No Agent consensus took part, so there is nothing to beat.</p>}
           {baseline !== undefined ? <p>{baselineLine(score, baseline)}</p> : null}

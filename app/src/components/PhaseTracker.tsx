@@ -1,4 +1,5 @@
 import { PHASES, type Phase } from "@/lib/round";
+import { Tick } from "./doodle";
 
 const TITLES: Record<Phase, string> = {
   commit: "Commit",
@@ -22,6 +23,7 @@ export function PhaseTracker({ phase, closing = false }: { phase: Phase; closing
           aria-current={i === currentIdx ? "step" : undefined}
         >
           {TITLES[p]}
+          {i < currentIdx ? <Tick className="tracker-tick" size={13} /> : null}
           {i === currentIdx && closing ? <span className="closing"> closing</span> : null}
         </li>
       ))}

@@ -1,10 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { Countdown } from "@/components/Countdown";
+import { Arrow } from "@/components/doodle";
+import { Annotation } from "@/components/doodle/Annotation";
+import { PhaseSticker } from "@/components/doodle/PhaseSticker";
 import { MarketPanel } from "@/components/MarketPanel";
 import { HouseAgents, UsNotice } from "@/components/Notices";
+import { PageHeader } from "@/components/PageHeader";
 import { PhaseTracker } from "@/components/PhaseTracker";
-import { WalletButton } from "@/components/WalletButton";
 import { formatCountdown, tickerLabel, useLatestRoundId, useRound } from "@/lib/round";
 
 /** Screen 3: Market. */
@@ -14,10 +18,7 @@ export default function Market() {
 
   return (
     <main className="page">
-      <header className="top">
-        <h1>Consensus Path</h1>
-        <WalletButton />
-      </header>
+      <PageHeader />
 
       <UsNotice />
 
@@ -40,14 +41,20 @@ export default function Market() {
           <p className="muted">Reading round #{latest.id.toString()}...</p>
         ) : (
           <>
+            <PhaseSticker phase={round.phase} roundId={latest.id} />
             <p className="stock">
               <span className="ticker">{tickerLabel(round.params.ticker)}</span>{" "}
               <span className="muted">round #{latest.id.toString()}</span>
             </p>
-            <p className="countdown" aria-label="Time left in this phase">
-              {round.phase === "settled" ? "Final" : round.phase === "void" ? "Void" : formatCountdown(round.countdownSec ?? 0)}
-            </p>
+            <Countdown
+              text={round.phase === "settled" ? "Final" : round.phase === "void" ? "Void" : formatCountdown(round.countdownSec ?? 0)}
+            />
             <PhaseTracker phase={round.phase} closing={round.closing} />
+            {round.phase === "market" ? (
+              <Annotation text="pick a side">
+                <Arrow variant="leader" size={64} rotate={4} />
+              </Annotation>
+            ) : null}
             <MarketPanel roundId={latest.id} T={round.params.T} phase={round.phase} closing={round.closing} />
             {round.phase === "play" || round.phase === "settled" ? (
               <Link href="/reveal" className="btn primary link-btn">
